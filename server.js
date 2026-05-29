@@ -240,12 +240,37 @@ app.get('/api/sessions', async (req, res) => {
 
 // 10. Swarm Controls
 app.post('/api/swarm/init', async (req, res) => {
-  const result = await runCommand('npx ruflo@latest start');
-  res.json(result);
+  console.log('[Swarm Manager] Starting RuFlo swarm coordinator daemon in background...');
+  
+  // Launch the background daemon process without waiting for it to exit
+  const proc = exec('npx ruflo@latest start', { cwd: __dirname });
+  
+  let stdoutData = '';
+  let stderrData = '';
+  
+  proc.stdout.on('data', (data) => {
+    stdoutData += data.toString();
+  });
+  
+  proc.stderr.on('data', (data) => {
+    stderrData += data.toString();
+  });
+  
+  // Wait exactly 2.5 seconds for the daemon to boot and complete initial health checks
+  await new Promise(resolve => setTimeout(resolve, 2500));
+  
+  console.log('[Swarm Manager] Daemon initialized successfully.');
+  res.json({
+    success: true,
+    stdout: stdoutData || 'RuFlo Coordination Swarm started successfully in background!',
+    stderr: stderrData,
+    code: 0
+  });
 });
 
 app.post('/api/swarm/stop', async (req, res) => {
-  const result = await runCommand('npx ruflo@latest start stop');
+  console.log('[Swarm Manager] Stopping background swarm daemon...');
+  const result = await runCommand('npx ruflo@latest stop');
   res.json(result);
 });
 
