@@ -1,0 +1,30 @@
+# Dependencies
+node_modules/
+jspm_packages/
+web_modules/
+
+# Debug logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+.pnpm-debug.log*
+
+# Operating System Files
+.DS_Store
+Thumbs.db
+
+# Ruflo Local State & Database
+.claude-flow/logs/
+.claude-flow/sessions/
+ruvector.db
+data/
+*.db
+
+# Environment Secrets
+.env
+.env.local
+.env.production
+.env.development
+*.pem
+*.key

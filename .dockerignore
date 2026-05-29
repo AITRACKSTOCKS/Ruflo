@@ -1,0 +1,7 @@
+node_modules
+npm-debug.log
+.git
+.claude-flow/logs
+.claude-flow/sessions
+ruvector.db
+data/

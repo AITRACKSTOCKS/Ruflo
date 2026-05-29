@@ -1,0 +1,546 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RuFlo Swarm Center — All-Capabilities command console</title>
+  <!-- Google Fonts: Inter & Outfit -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  
+  <div class="glass-bg"></div>
+
+  <div class="app-layout">
+    
+    <!-- SIDEBAR NAVIGATION -->
+    <aside class="sidebar glass-card">
+      <div class="sidebar-logo">
+        <div class="logo-orb"></div>
+        <h2>RuFlo <span>Swarm</span></h2>
+      </div>
+      
+      <nav class="sidebar-nav">
+        <button class="nav-item active" data-tab="orchestrator">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9"></rect><rect x="14" y="3" width="7" height="5"></rect><rect x="14" y="12" width="7" height="9"></rect><rect x="3" y="16" width="7" height="5"></rect></svg>
+          Swarm Orchestrator
+        </button>
+        <button class="nav-item" data-tab="memory">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
+          Brain & Memory
+        </button>
+        <button class="nav-item" data-tab="security">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+          Security Guard
+        </button>
+        <button class="nav-item" data-tab="performance">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
+          Engine Benchmarks
+        </button>
+        <button class="nav-item" data-tab="missions">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+          Swarm Missions
+        </button>
+      </nav>
+
+      <div class="sidebar-footer">
+        <div class="stat-badge w-full justify-center">
+          <span class="dot pulse green"></span>
+          <span class="value" id="system-status-text">System Active</span>
+        </div>
+      </div>
+    </aside>
+
+    <!-- CONTENT WRAPPER -->
+    <div class="content-wrapper">
+      
+      <!-- HEADER -->
+      <header class="app-header">
+        <div class="header-logo-text">
+          <span class="tag">RuFlo V3.10 Command Center</span>
+          <h1 id="active-tab-title">Swarm Orchestrator</h1>
+        </div>
+        <div class="system-stats">
+          <div class="stat-badge">
+            <span class="label">Provider:</span>
+            <span class="value" id="preferred-provider">OpenAI</span>
+          </div>
+          <div class="stat-badge">
+            <span class="label">Model:</span>
+            <span class="value highlight" id="preferred-model">gpt-4.1-mini</span>
+          </div>
+        </div>
+      </header>
+
+      <!-- SYSTEM CONTROLS BAR -->
+      <section class="control-strip">
+        <div class="strip-actions">
+          <button id="btn-start-system" class="btn btn-primary btn-glow">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+            Start Daemon
+          </button>
+          <button id="btn-stop-system" class="btn btn-secondary">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect></svg>
+            Stop Daemon
+          </button>
+          <button id="btn-clear-store" class="btn btn-danger">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+            Reset System
+          </button>
+        </div>
+        <div class="strip-info">
+          <span>Topology: <strong id="val-topology">hierarchical-mesh</strong></span>
+          <span>Max Agents: <strong id="val-max-agents">8</strong></span>
+        </div>
+      </section>
+
+      <!-- TAB SECTIONS -->
+
+      <!-- TAB 1: SWARM ORCHESTRATOR -->
+      <div id="tab-orchestrator" class="tab-content active">
+        <div class="dashboard-grid">
+          <!-- Left Forms Panel -->
+          <div class="left-panel">
+            <!-- Spawn Form -->
+            <div class="card glass-card">
+              <div class="card-header">
+                <div class="card-icon cyan-glow">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="8.5" cy="7" r="4"></circle><line x1="20" y1="8" x2="20" y2="14"></line><line x1="23" y1="11" x2="17" y2="11"></line></svg>
+                </div>
+                <h2>Spawn Specialist Agent</h2>
+              </div>
+              <form id="form-spawn-agent" class="card-body">
+                <div class="form-row">
+                  <div class="form-group">
+                    <label for="agent-type">Agent Type</label>
+                    <select id="agent-type" required>
+                      <option value="coder" selected>Coder (Developer)</option>
+                      <option value="tester">Tester (QA)</option>
+                      <option value="reviewer">Reviewer (Auditor)</option>
+                      <option value="researcher">Researcher (Info)</option>
+                      <option value="architect">Architect (Design)</option>
+                    </select>
+                  </div>
+                  <div class="form-group">
+                    <label for="agent-provider">LLM Provider</label>
+                    <select id="agent-provider">
+                      <option value="openai" selected>OpenAI (Configured)</option>
+                      <option value="anthropic">Anthropic (Claude)</option>
+                      <option value="ollama">Ollama (Local)</option>
+                    </select>
+                  </div>
+                </div>
+                
+                <div class="form-group">
+                  <label for="agent-model">Model Name Override</label>
+                  <input type="text" id="agent-model" value="gpt-4.1-mini">
+                </div>
+
+                <div class="form-group">
+                  <label for="agent-task">Initial Task Instruction</label>
+                  <textarea id="agent-task" rows="3" required>Create a file named gpt_test.txt containing the text 'Hello from GPT 4.1 Mini!'</textarea>
+                </div>
+
+                <button type="submit" class="btn btn-cyan btn-full">
+                  Spawn & Execute Agent
+                </button>
+              </form>
+            </div>
+
+            <!-- Swarm Objective Form -->
+            <div class="card glass-card">
+              <div class="card-header">
+                <div class="card-icon purple-glow">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"></path></svg>
+                </div>
+                <h2>Deploy Swarm Mission</h2>
+              </div>
+              <form id="form-swarm-objective" class="card-body">
+                <div class="form-group">
+                  <label for="swarm-objective">Mission Goal</label>
+                  <textarea id="swarm-objective" rows="3" placeholder="Explain the complex swarm objective..." required>Verify the project structure, run code analysis, and document optimal implementation patterns in patterns.md</textarea>
+                </div>
+                
+                <div class="form-row">
+                  <div class="form-group">
+                    <label for="swarm-strategy">Coordination Strategy</label>
+                    <select id="swarm-strategy">
+                      <option value="specialized" selected>Specialized Handlers</option>
+                      <option value="parallel">High Parallelism</option>
+                      <option value="strict">Strict Consensus Routing</option>
+                    </select>
+                  </div>
+                  <div class="form-group">
+                    <label for="swarm-parallel">Parallel Execution</label>
+                    <select id="swarm-parallel">
+                      <option value="true" selected>Enabled</option>
+                      <option value="false">Disabled (Sequential)</option>
+                    </select>
+                  </div>
+                </div>
+
+                <button type="submit" class="btn btn-purple btn-full">
+                  Deploy Swarm Mission
+                </button>
+              </form>
+            </div>
+          </div>
+
+          <!-- Right Grid Agent List -->
+          <div class="right-panel">
+            <div class="card glass-card agents-panel">
+              <div class="card-header header-between">
+                <div class="header-left">
+                  <div class="card-icon green-glow">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9.5" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+                  </div>
+                  <h2>Active Agents Network</h2>
+                </div>
+                <div class="header-actions">
+                  <button id="btn-refresh-agents" class="btn-icon">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"></path></svg>
+                  </button>
+                </div>
+              </div>
+              <div class="card-body agents-list" id="agents-grid">
+                <!-- Dynamic agent grid injection -->
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB 2: BRAIN & MEMORY -->
+      <div id="tab-memory" class="tab-content">
+        <div class="dashboard-grid">
+          
+          <div class="left-panel">
+            <!-- Autopilot persistence toggle card -->
+            <div class="card glass-card">
+              <div class="card-header">
+                <div class="card-icon cyan-glow">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
+                </div>
+                <h2>Autopilot persistent Loop</h2>
+              </div>
+              <div class="card-body flex-col gap-12">
+                <p class="text-sm text-secondary">
+                  Autopilot forces agents to complete outstanding tasks continuously without polling, running recursive loops.
+                </p>
+                <div class="flex-row justify-between w-full align-center border-glass-top pt-12">
+                  <span>Autopilot Mode:</span>
+                  <div class="toggle-switch">
+                    <input type="checkbox" id="chk-autopilot">
+                    <label for="chk-autopilot"></label>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Vector search memory form -->
+            <div class="card glass-card">
+              <div class="card-header">
+                <div class="card-icon green-glow">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                </div>
+                <h2>Vector Memory Search</h2>
+              </div>
+              <form id="form-memory-search" class="card-body">
+                <div class="form-group">
+                  <label for="search-query">Semantic Query</label>
+                  <input type="text" id="search-query" placeholder="e.g. auth patterns, db schema..." required>
+                </div>
+                
+                <div class="form-group">
+                  <label for="search-namespace">Memory Namespace</label>
+                  <select id="search-namespace">
+                    <option value="patterns" selected>patterns (Success patterns)</option>
+                    <option value="skills">skills (Wasm agent scripts)</option>
+                    <option value="context">context (Project history)</option>
+                    <option value="agent-teams">agent-teams (Swarm cache)</option>
+                  </select>
+                </div>
+
+                <button type="submit" class="btn btn-primary btn-full">
+                  Search Vector DB
+                </button>
+              </form>
+            </div>
+
+            <!-- Store memory form -->
+            <div class="card glass-card">
+              <div class="card-header">
+                <div class="card-icon purple-glow">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
+                </div>
+                <h2>Inject New Swarm Memory</h2>
+              </div>
+              <form id="form-memory-store" class="card-body">
+                <div class="form-group">
+                  <label for="store-namespace">Namespace</label>
+                  <select id="store-namespace">
+                    <option value="patterns" selected>patterns (Best practices)</option>
+                    <option value="context">context (Core parameters)</option>
+                  </select>
+                </div>
+
+                <div class="form-group">
+                  <label for="store-key">Memory Identifier (Key)</label>
+                  <input type="text" id="store-key" placeholder="e.g. auth-flow-v3" required>
+                </div>
+
+                <div class="form-group">
+                  <label for="store-value">Memory Value (Rules/Knowledge)</label>
+                  <textarea id="store-value" rows="3" placeholder="Enter memory rules or semantic knowledge to store..." required></textarea>
+                </div>
+
+                <button type="submit" class="btn btn-purple btn-full">
+                  Persist Memory
+                </button>
+              </form>
+            </div>
+          </div>
+
+          <!-- Memory Search Results grid/card -->
+          <div class="right-panel">
+            <div class="card glass-card full-height flex-col">
+              <div class="card-header">
+                <div class="card-icon gold-glow">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2A10 10 0 0 0 2 12a10 10 0 0 0 10 10 10 10 0 0 0 10-10A10 10 0 0 0 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z"></path><path d="M12 6v6l4 2"></path></svg>
+                </div>
+                <h2>Vector Memory Match Registry</h2>
+              </div>
+              <div class="card-body flex-1 overflow-auto" id="memory-results-container">
+                <div class="empty-state">
+                  <div class="empty-icon">🧠</div>
+                  <p>No query submitted</p>
+                  <span>Use the Vector Memory Search form to query Ruflo's HNSW vector index database.</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- TAB 3: SECURITY GUARD -->
+      <div id="tab-security" class="tab-content">
+        <div class="dashboard-grid">
+          
+          <div class="left-panel">
+            <!-- Full codebase security scan trigger -->
+            <div class="card glass-card">
+              <div class="card-header">
+                <div class="card-icon red-glow">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+                </div>
+                <h2>Full Swarm Security Audit</h2>
+              </div>
+              <div class="card-body">
+                <p class="text-sm text-secondary mb-16">
+                  Triggers `ruflo security scan` to run automated CVE audits, threat modeling patterns, and secret detection.
+                </p>
+                <button id="btn-security-scan" class="btn btn-danger btn-full">
+                  Execute Security Scan
+                </button>
+              </div>
+            </div>
+
+            <!-- Threat verification form -->
+            <div class="card glass-card">
+              <div class="card-header">
+                <div class="card-icon cyan-glow">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+                </div>
+                <h2>Verify File Threat</h2>
+              </div>
+              <form id="form-security-verify" class="card-body">
+                <div class="form-group">
+                  <label for="threat-file-path">File Path (Relative/Absolute)</label>
+                  <input type="text" id="threat-file-path" placeholder="e.g. .env, package.json, src/auth.js" required>
+                </div>
+
+                <button type="submit" class="btn btn-cyan btn-full">
+                  Analyze Security Threat
+                </button>
+              </form>
+            </div>
+          </div>
+
+          <div class="right-panel">
+            <div class="card glass-card full-height flex-col">
+              <div class="card-header">
+                <div class="card-icon gold-glow">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+                </div>
+                <h2>Security Guard Scan Output</h2>
+              </div>
+              <div class="card-body flex-1 overflow-auto" id="security-results-container">
+                <div class="empty-state">
+                  <div class="empty-icon">🛡️</div>
+                  <p>No audit triggered</p>
+                  <span>Click 'Execute Security Scan' or scan a specific file to check vulnerabilities.</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- TAB 4: ENGINE BENCHMARKS & HOOKS -->
+      <div id="tab-performance" class="tab-content">
+        <div class="dashboard-grid">
+          
+          <div class="left-panel">
+            <!-- Run Performance Benchmark -->
+            <div class="card glass-card">
+              <div class="card-header">
+                <div class="card-icon gold-glow">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+                </div>
+                <h2>Engine Profile Profiler</h2>
+              </div>
+              <div class="card-body">
+                <p class="text-sm text-secondary mb-16">
+                  Runs performance benchmarks (`ruflo performance benchmark`) to check token processing speeds, WASM compilation times, and Flash Attention.
+                </p>
+                <button id="btn-performance-benchmark" class="btn btn-primary btn-full">
+                  Run Benchmarks
+                </button>
+              </div>
+            </div>
+
+            <!-- Trigger Hooks Workers -->
+            <div class="card glass-card">
+              <div class="card-header">
+                <div class="card-icon purple-glow">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path></svg>
+                </div>
+                <h2>Trigger background Workers</h2>
+              </div>
+              <div class="card-body flex-col gap-12">
+                <p class="text-sm text-secondary mb-12">
+                  Launch automated self-learning background workers on-demand through the CLI hooks subsystem:
+                </p>
+                <button class="btn btn-secondary btn-full justify-start btn-worker" data-worker="audit">
+                  <span>🛡️</span> Security Auditor (audit)
+                </button>
+                <button class="btn btn-secondary btn-full justify-start btn-worker" data-worker="optimize">
+                  <span>⚡</span> Performance Optimizer (optimize)
+                </button>
+                <button class="btn btn-secondary btn-full justify-start btn-worker" data-worker="map">
+                  <span>🗺️</span> Code Boundary Map (map)
+                </button>
+                <button class="btn btn-secondary btn-full justify-start btn-worker" data-worker="testgaps">
+                  <span>🧪</span> Test Gap Analyzer (testgaps)
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div class="right-panel">
+            <div class="card glass-card full-height flex-col">
+              <div class="card-header">
+                <div class="card-icon green-glow">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
+                </div>
+                <h2>Optimization & Benchmark Metrics</h2>
+              </div>
+              <div class="card-body flex-1 overflow-auto" id="performance-results-container">
+                <div class="empty-state">
+                  <div class="empty-icon">⚡</div>
+                  <p>No benchmarks executed</p>
+                  <span>Click 'Run Benchmarks' or trigger a background hook worker to view engine processing metrics.</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- TAB 5: SWARM MISSIONS (TASKS & SESSIONS) -->
+      <div id="tab-missions" class="tab-content">
+        <div class="dashboard-grid grid-1-1">
+          <!-- Active Task Queue -->
+          <div class="card glass-card flex-col">
+            <div class="card-header header-between">
+              <div class="header-left">
+                <div class="card-icon cyan-glow">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+                </div>
+                <h2>Swarm Task Queue</h2>
+              </div>
+              <div class="header-actions">
+                <button id="btn-refresh-tasks" class="btn-icon">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"></path></svg>
+                </button>
+              </div>
+            </div>
+            <div class="card-body overflow-auto flex-1" id="tasks-container">
+              <!-- Rendered task entries -->
+              <div class="empty-state">
+                <div class="empty-icon">📋</div>
+                <p>No active tasks</p>
+                <span>Deploy a mission or spawn an agent to add tasks to the Swarm.</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Active Swarm Sessions -->
+          <div class="card glass-card flex-col">
+            <div class="card-header header-between">
+              <div class="header-left">
+                <div class="card-icon purple-glow">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2A10 10 0 0 0 2 12a10 10 0 0 0 10 10 10 10 0 0 0 10-10A10 10 0 0 0 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z"></path><path d="M12 6v6l4 2"></path></svg>
+                </div>
+                <h2>Active Swarm Sessions</h2>
+              </div>
+              <div class="header-actions">
+                <button id="btn-refresh-sessions" class="btn-icon">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"></path></svg>
+                </button>
+              </div>
+            </div>
+            <div class="card-body overflow-auto flex-1" id="sessions-container">
+              <!-- Rendered sessions entries -->
+              <div class="empty-state">
+                <div class="empty-icon">📁</div>
+                <p>No active sessions</p>
+                <span>Initialize the Swarm daemon to create interactive coordination sessions.</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- COMMON CONSOLE / TERMINAL OUTPUT -->
+      <section class="console-section card glass-card">
+        <div class="card-header header-between">
+          <div class="header-left">
+            <div class="card-icon gold-glow">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 17 10 11 4 5"></polyline><line x1="12" y1="19" x2="20" y2="19"></line></svg>
+            </div>
+            <h2>Swarm Output Terminal</h2>
+          </div>
+          <div class="header-actions">
+            <span class="status-indicator" id="term-status">Terminal Ready</span>
+            <button id="btn-clear-terminal" class="btn-icon-text">Clear</button>
+          </div>
+        </div>
+        <div class="card-body console-wrapper">
+          <pre class="console-log" id="console-output">> Ready for input. Waiting to launch Ruflo commands...</pre>
+        </div>
+      </section>
+
+    </div>
+
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

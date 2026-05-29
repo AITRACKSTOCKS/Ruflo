@@ -1,0 +1,34 @@
+{
+  "agents": {
+    "agent-1780037521249-eci68q": {
+      "agentId": "agent-1780037521249-eci68q",
+      "agentType": "coder",
+      "status": "idle",
+      "health": 1,
+      "taskCount": 0,
+      "config": {
+        "provider": "anthropic",
+        "task": "Create a file named gpt_test.txt containing the text 'Hello from GPT 4.1 Mini!'"
+      },
+      "createdAt": "2026-05-29T06:52:01.264Z",
+      "model": "haiku",
+      "modelRoutedBy": "router"
+    },
+    "agent-1780037727163-yayms1": {
+      "agentId": "agent-1780037727163-yayms1",
+      "agentType": "coder",
+      "status": "idle",
+      "health": 1,
+      "taskCount": 0,
+      "config": {
+        "provider": "openai",
+        "model": "gpt-4.1-mini",
+        "task": "Create a file named gpt_test.txt containing the text 'Hello from GPT 4.1 Mini!'"
+      },
+      "createdAt": "2026-05-29T06:55:27.181Z",
+      "model": "haiku",
+      "modelRoutedBy": "router"
+    }
+  },
+  "version": "3.0.0"
+}
