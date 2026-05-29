@@ -210,7 +210,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const objective = document.getElementById('swarm-objective').value;
     const strategy = document.getElementById('swarm-strategy').value;
     const parallel = document.getElementById('swarm-parallel').value === 'true';
+    const repoUrl = document.getElementById('swarm-repo').value;
+    const branch = document.getElementById('swarm-branch').value;
 
+    if (repoUrl) {
+      logToTerminal(`Deploying Git-Bridge Mission -> Repository: [${repoUrl}] (Branch: ${branch})`);
+    }
     logToTerminal(`Deploying Swarm Mission -> "${objective}" (Strategy: ${strategy})`);
     termStatus.innerText = 'Swarm active...';
 
@@ -218,7 +223,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const response = await fetch('/api/swarm/start', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ objective, strategy, parallel })
+        body: JSON.stringify({ objective, strategy, parallel, repoUrl, branch })
       });
       const result = await response.json();
       termStatus.innerText = 'Terminal Ready';

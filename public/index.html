@@ -159,12 +159,23 @@
                 <h2>Deploy Swarm Mission</h2>
               </div>
               <form id="form-swarm-objective" class="card-body">
+              <div class="form-group">
+                <label for="swarm-objective">Mission Goal</label>
+                <textarea id="swarm-objective" rows="3" placeholder="Explain the complex swarm objective..." required>Verify the project structure, run code analysis, and document optimal implementation patterns in patterns.md</textarea>
+              </div>
+
+              <div class="form-row">
                 <div class="form-group">
-                  <label for="swarm-objective">Mission Goal</label>
-                  <textarea id="swarm-objective" rows="3" placeholder="Explain the complex swarm objective..." required>Verify the project structure, run code analysis, and document optimal implementation patterns in patterns.md</textarea>
+                  <label for="swarm-repo">Target GitHub Repository (Optional)</label>
+                  <input type="text" id="swarm-repo" placeholder="e.g. https://github.com/org/repo.git">
                 </div>
-                
-                <div class="form-row">
+                <div class="form-group">
+                  <label for="swarm-branch">Branch Name</label>
+                  <input type="text" id="swarm-branch" value="main" placeholder="e.g. main or dev">
+                </div>
+              </div>
+              
+              <div class="form-row">
                   <div class="form-group">
                     <label for="swarm-strategy">Coordination Strategy</label>
                     <select id="swarm-strategy">

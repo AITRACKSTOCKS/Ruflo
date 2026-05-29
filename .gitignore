@@ -19,6 +19,7 @@ Thumbs.db
 .claude-flow/sessions/
 ruvector.db
 data/
+temp/
 *.db
 
 # Environment Secrets

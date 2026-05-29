@@ -14,9 +14,9 @@ const configPath = path.join(__dirname, 'claude-flow.config.json');
 const storePath = path.join(__dirname, '.claude-flow', 'agents', 'store.json');
 
 // Helper to run shell commands safely
-function runCommand(cmd) {
+function runCommand(cmd, customCwd = __dirname) {
   return new Promise((resolve) => {
-    exec(cmd, { cwd: __dirname }, (error, stdout, stderr) => {
+    exec(cmd, { cwd: customCwd }, (error, stdout, stderr) => {
       resolve({
         success: !error,
         stdout: stdout || '',
@@ -77,20 +77,70 @@ app.post('/api/agent/spawn', async (req, res) => {
   res.json(result);
 });
 
-// 3. Start Swarm Execution
+// 3. Start Swarm Execution (Supports Git Bridge & Local workspaces)
 app.post('/api/swarm/start', async (req, res) => {
-  const { objective, strategy, parallel } = req.body;
+  const { objective, strategy, parallel, repoUrl, branch } = req.body;
   if (!objective) {
     return res.status(400).json({ error: 'Objective is required.' });
+  }
+
+  let workingDir = __dirname;
+  let stdoutLogs = '';
+  let stderrLogs = '';
+
+  // Git Bridge Target Workspace Orchestration
+  if (repoUrl) {
+    const jobId = Date.now();
+    const tempDir = path.join(__dirname, 'temp', 'jobs', `job-${jobId}`);
+    
+    fs.mkdirSync(path.join(__dirname, 'temp', 'jobs'), { recursive: true });
+    
+    console.log(`[Git Bridge] Cloning ${repoUrl} (branch: ${branch || 'main'}) to ${tempDir}`);
+    const cloneBranch = branch ? `-b ${branch}` : '';
+    const cloneResult = await runCommand(`git clone ${cloneBranch} ${repoUrl} "${tempDir}"`);
+    
+    if (!cloneResult.success) {
+      return res.json({
+        success: false,
+        stdout: cloneResult.stdout,
+        stderr: `Failed to clone repository: ${cloneResult.stderr}`,
+        code: cloneResult.code
+      });
+    }
+    
+    workingDir = tempDir;
+    stdoutLogs += `[Git Bridge] Cloned repository successfully!\n`;
   }
 
   let cmd = `npx ruflo@latest swarm start -o "${objective.replace(/"/g, '\\"')}"`;
   if (strategy) cmd += ` -s ${strategy}`;
   if (parallel === false) cmd += ` --no-parallel`;
 
-  console.log(`Executing: ${cmd}`);
-  const result = await runCommand(cmd);
-  res.json(result);
+  console.log(`Executing in [${workingDir}]: ${cmd}`);
+  const result = await runCommand(cmd, workingDir);
+  
+  stdoutLogs += result.stdout;
+  stderrLogs += result.stderr;
+
+  // Auto commit and push changes back to GitHub if Git Bridge was used and task succeeded
+  if (repoUrl && result.success) {
+    console.log(`[Git Bridge] Pushing swarm coding changes back to repository...`);
+    const commitMsg = `agent: completed objective "${objective.substring(0, 50)}"`;
+    
+    const pushResult = await runCommand(`git add . && git commit -m "${commitMsg}" && git push`, workingDir);
+    if (pushResult.success) {
+      stdoutLogs += `\n[Git Bridge] SUCCESS: Committed and pushed all changes back to GitHub branch! Developer can 'git pull' now.`;
+    } else {
+      stderrLogs += `\n[Git Bridge] PUSH WARNING: Code modified successfully, but failed to auto-push: ${pushResult.stderr}`;
+    }
+  }
+
+  res.json({
+    success: result.success,
+    stdout: stdoutLogs,
+    stderr: stderrLogs,
+    code: result.code
+  });
 });
 
 // 4. Memory & Vector Operations
