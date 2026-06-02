@@ -1,4 +1,12 @@
 document.addEventListener('DOMContentLoaded', () => {
+  // DOM Elements - Authentication Guard
+  const loginOverlay = document.getElementById('login-overlay');
+  const formLogin = document.getElementById('form-login');
+  const loginUsernameInput = document.getElementById('login-username');
+  const loginPasswordInput = document.getElementById('login-password');
+  const loginError = document.getElementById('login-error');
+  const btnSignout = document.getElementById('btn-signout');
+
   // DOM Elements - Navigation Tabs
   const navItems = document.querySelectorAll('.nav-item');
   const tabContents = document.querySelectorAll('.tab-content');
@@ -42,6 +50,32 @@ document.addEventListener('DOMContentLoaded', () => {
   
   const consoleOutput = document.getElementById('console-output');
   const termStatus = document.getElementById('term-status');
+
+  // Authentication Handlers
+  formLogin.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const username = loginUsernameInput.value.trim();
+    const password = loginPasswordInput.value;
+
+    if (username === 'Admin@07' && password === 'Admin@007') {
+      localStorage.setItem('ruflo_authenticated', 'true');
+      loginOverlay.classList.add('hidden');
+      loginError.classList.add('hidden');
+      loginUsernameInput.value = '';
+      loginPasswordInput.value = '';
+      checkStatus();
+      logToTerminal('Console session successfully authenticated as security administrator.');
+    } else {
+      loginError.classList.remove('hidden');
+      loginPasswordInput.value = '';
+    }
+  });
+
+  btnSignout.addEventListener('click', () => {
+    localStorage.removeItem('ruflo_authenticated');
+    loginOverlay.classList.remove('hidden');
+    logToTerminal('Authenticated session terminated. Redirecting to security login...');
+  });
 
   // 1. Sidebar Tab Switching
   navItems.forEach(item => {
@@ -90,6 +124,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // 3. Core Status & Agents Polling
   async function checkStatus() {
+    if (localStorage.getItem('ruflo_authenticated') !== 'true') return;
     try {
       const response = await fetch('/api/status');
       if (!response.ok) throw new Error('API unreachable');
@@ -564,6 +599,16 @@ document.addEventListener('DOMContentLoaded', () => {
   btnRefreshAgents.addEventListener('click', checkStatus);
 
   // Initialize and run
-  checkStatus();
-  setInterval(checkStatus, 3000);
+  if (localStorage.getItem('ruflo_authenticated') === 'true') {
+    loginOverlay.classList.add('hidden');
+    checkStatus();
+  } else {
+    loginOverlay.classList.remove('hidden');
+  }
+
+  setInterval(() => {
+    if (localStorage.getItem('ruflo_authenticated') === 'true') {
+      checkStatus();
+    }
+  }, 3000);
 });

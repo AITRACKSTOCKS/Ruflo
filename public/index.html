@@ -14,6 +14,40 @@
   
   <div class="glass-bg"></div>
 
+  <!-- Premium Login Overlay -->
+  <div id="login-overlay" class="login-overlay">
+    <div class="login-orb-1"></div>
+    <div class="login-orb-2"></div>
+    
+    <div class="login-card glass-card">
+      <div class="login-header">
+        <div class="logo-orb"></div>
+        <h2>RuFlo <span>Swarm</span></h2>
+        <span class="tag">Security Console Authentication</span>
+      </div>
+      
+      <form id="form-login" class="login-form">
+        <div class="form-group">
+          <label for="login-username">Username</label>
+          <input type="text" id="login-username" placeholder="Enter username" autocomplete="username" required>
+        </div>
+        
+        <div class="form-group">
+          <label for="login-password">Password</label>
+          <input type="password" id="login-password" placeholder="••••••••" autocomplete="current-password" required>
+        </div>
+        
+        <div id="login-error" class="login-error hidden">
+          Invalid username or password credentials.
+        </div>
+        
+        <button type="submit" class="btn btn-cyan btn-full btn-glow">
+          Authenticate Console
+        </button>
+      </form>
+    </div>
+  </div>
+
   <div class="app-layout">
     
     <!-- SIDEBAR NAVIGATION -->
@@ -47,6 +81,10 @@
       </nav>
 
       <div class="sidebar-footer">
+        <button id="btn-signout" class="btn btn-secondary btn-full mb-12">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right: 8px;"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg>
+          Sign Out
+        </button>
         <div class="stat-badge w-full justify-center">
           <span class="dot pulse green"></span>
           <span class="value" id="system-status-text">System Active</span>
