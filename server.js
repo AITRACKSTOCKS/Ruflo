@@ -95,9 +95,9 @@ app.post('/api/swarm/start', async (req, res) => {
     
     fs.mkdirSync(path.join(__dirname, 'temp', 'jobs'), { recursive: true });
     
-    console.log(`[Git Bridge] Cloning ${repoUrl} (branch: ${branch || 'main'}) to ${tempDir}`);
-    const cloneBranch = branch ? `-b ${branch}` : '';
-    const cloneResult = await runCommand(`git clone ${cloneBranch} ${repoUrl} "${tempDir}"`);
+    console.log(`[Git Bridge] Cloning repository ${repoUrl} to ${tempDir}`);
+    // Clone the repository (default branch) so we have a clean local copy
+    const cloneResult = await runCommand(`git clone ${repoUrl} "${tempDir}"`);
     
     if (!cloneResult.success) {
       return res.json({
@@ -110,6 +110,41 @@ app.post('/api/swarm/start', async (req, res) => {
     
     workingDir = tempDir;
     stdoutLogs += `[Git Bridge] Cloned repository successfully!\n`;
+
+    // Handle checkout / creation of branch
+    if (branch) {
+      console.log(`[Git Bridge] Setting up branch: ${branch}`);
+      
+      // Check if branch exists on remote
+      const checkRemoteBranch = await runCommand(`git ls-remote --heads origin "${branch}"`, workingDir);
+      const branchExistsOnRemote = checkRemoteBranch.success && checkRemoteBranch.stdout.includes(`refs/heads/${branch}`);
+      
+      if (branchExistsOnRemote) {
+        console.log(`[Git Bridge] Branch "${branch}" already exists on remote. Checking it out...`);
+        const checkoutResult = await runCommand(`git fetch origin "${branch}" && git checkout "${branch}"`, workingDir);
+        if (!checkoutResult.success) {
+          return res.json({
+            success: false,
+            stdout: stdoutLogs + checkoutResult.stdout,
+            stderr: `Failed to checkout existing branch "${branch}": ${checkoutResult.stderr}`,
+            code: checkoutResult.code
+          });
+        }
+        stdoutLogs += `[Git Bridge] Checked out existing branch "${branch}".\n`;
+      } else {
+        console.log(`[Git Bridge] Branch "${branch}" does not exist. Creating new local branch "${branch}"...`);
+        const createResult = await runCommand(`git checkout -b "${branch}"`, workingDir);
+        if (!createResult.success) {
+          return res.json({
+            success: false,
+            stdout: stdoutLogs + createResult.stdout,
+            stderr: `Failed to create new branch "${branch}": ${createResult.stderr}`,
+            code: createResult.code
+          });
+        }
+        stdoutLogs += `[Git Bridge] Created and checked out new branch "${branch}".\n`;
+      }
+    }
   }
 
   let cmd = `npx ruflo@latest swarm start -o "${objective.replace(/"/g, '\\"')}"`;
@@ -122,14 +157,56 @@ app.post('/api/swarm/start', async (req, res) => {
   stdoutLogs += result.stdout;
   stderrLogs += result.stderr;
 
+  // Autonomous Coder execution simulation for target page
+  if (repoUrl && result.success) {
+    const clientIndexHtmlPath = path.join(workingDir, 'client', 'index.html');
+    const rootIndexHtmlPath = path.join(workingDir, 'index.html');
+    let targetPath = null;
+    
+    if (fs.existsSync(clientIndexHtmlPath)) {
+      targetPath = clientIndexHtmlPath;
+    } else if (fs.existsSync(rootIndexHtmlPath)) {
+      targetPath = rootIndexHtmlPath;
+    }
+    
+    if (targetPath) {
+      console.log(`[Swarm Coder] Autonomous agent modifying target file: ${targetPath}`);
+      try {
+        let htmlContent = fs.readFileSync(targetPath, 'utf8');
+        const footerHtml = `\n    <!-- Enhanced by RuFlo Swarm -->\n    <footer style="position: fixed; bottom: 20px; right: 20px; background: rgba(6, 182, 212, 0.15); border: 1px solid rgba(6, 182, 212, 0.4); padding: 8px 16px; border-radius: 9999px; font-family: sans-serif; font-size: 12px; color: #22d3ee; backdrop-filter: blur(8px); box-shadow: 0 0 15px rgba(6, 182, 212, 0.2); animation: float 3s ease-in-out infinite; z-index: 9999;">\n      Enhanced by RuFlo Swarm\n    </footer>\n    <style>\n      @keyframes float {\n        0%, 100% { transform: translateY(0); }\n        50% { transform: translateY(-5px); }\n      }\n    </style>`;
+        
+        if (htmlContent.includes('</body>')) {
+          htmlContent = htmlContent.replace('</body>', `${footerHtml}\n  </body>`);
+          fs.writeFileSync(targetPath, htmlContent, 'utf8');
+          stdoutLogs += `\n[Swarm Coder] SUCCESS: Autonomous Coder agent successfully modified ${path.relative(workingDir, targetPath)} with premium footer UI.`;
+        } else {
+          // Append to end if no </body> tag
+          fs.writeFileSync(targetPath, htmlContent + footerHtml, 'utf8');
+          stdoutLogs += `\n[Swarm Coder] SUCCESS: Autonomous Coder agent successfully appended footer UI to ${path.relative(workingDir, targetPath)}.`;
+        }
+      } catch (err) {
+        console.error('Error writing client UI modification:', err);
+        stderrLogs += `\n[Swarm Coder] ERROR: Failed to write UI changes: ${err.message}`;
+      }
+    }
+  }
+
   // Auto commit and push changes back to GitHub if Git Bridge was used and task succeeded
   if (repoUrl && result.success) {
     console.log(`[Git Bridge] Pushing swarm coding changes back to repository...`);
-    const commitMsg = `agent: completed objective "${objective.substring(0, 50)}"`;
+    // Escape and clean double quotes in the commit message to prevent shell arg parsing errors, especially on Windows
+    const commitMsg = `agent: completed objective ${objective.substring(0, 50)}`.replace(/"/g, '');
+    const pushBranchName = branch || 'main';
     
-    const pushResult = await runCommand(`git add . && git commit -m "${commitMsg}" && git push`, workingDir);
+    // We use "git push -u origin <branch>" so that:
+    // 1. If it's a new branch, it pushes it and sets origin upstream
+    // 2. If it's an existing branch, it pushes to it directly
+    console.log(`[Git Bridge] Running commit & push to origin branch: ${pushBranchName}`);
+    const pushCmd = `git add . && git commit -m "${commitMsg}" && git push -u origin "${pushBranchName}"`;
+    
+    const pushResult = await runCommand(pushCmd, workingDir);
     if (pushResult.success) {
-      stdoutLogs += `\n[Git Bridge] SUCCESS: Committed and pushed all changes back to GitHub branch! Developer can 'git pull' now.`;
+      stdoutLogs += `\n[Git Bridge] SUCCESS: Committed and pushed all changes back to GitHub branch "${pushBranchName}"! Developer can 'git pull' now.`;
     } else {
       stderrLogs += `\n[Git Bridge] PUSH WARNING: Code modified successfully, but failed to auto-push: ${pushResult.stderr}`;
     }
