@@ -570,6 +570,7 @@ label {
 }
 
 input[type="text"],
+input[type="password"],
 select,
 textarea {
   width: 100%;
@@ -585,6 +586,7 @@ textarea {
 }
 
 input[type="text"]:focus,
+input[type="password"]:focus,
 select:focus,
 textarea:focus {
   border-color: var(--accent-cyan);
