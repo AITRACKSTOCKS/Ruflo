@@ -124,10 +124,21 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
+  function escapeHTML(str) {
+    if (typeof str !== 'string') return '';
+    return str
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+  }
+
   // 2. Terminal Logger
   function logToTerminal(text, isError = false) {
     const timestamp = new Date().toLocaleTimeString();
-    const formattedText = `\n[${timestamp}] ${text}`;
+    const escapedText = escapeHTML(text);
+    const formattedText = `\n[${timestamp}] ${escapedText}`;
     if (isError) {
       consoleOutput.innerHTML += `<span style="color: #F87171;">${formattedText}</span>`;
     } else {
@@ -354,6 +365,13 @@ document.addEventListener('DOMContentLoaded', () => {
             body: JSON.stringify({ objective, strategy, parallel, repoUrl, branch })
           });
 
+          if (!response.ok) {
+            const errText = await response.text();
+            let parsedErr;
+            try { parsedErr = JSON.parse(errText); } catch(e) {}
+            throw new Error((parsedErr && parsedErr.error) || errText || 'Failed to start swarm mission');
+          }
+
           const reader = response.body.getReader();
           const decoder = new TextDecoder();
           let buffer = '';
@@ -371,9 +389,7 @@ document.addEventListener('DOMContentLoaded', () => {
               if (!line.trim()) continue;
               try {
                 const packet = JSON.parse(line);
-                if (packet.type === 'ping') {
-                  // keepalive heartbeat — ignore silently
-                } else if (packet.type === 'log') {
+                if (packet.type === 'log') {
                   logToTerminal(packet.data);
                 } else if (packet.type === 'result') {
                   result = packet;
@@ -392,7 +408,7 @@ document.addEventListener('DOMContentLoaded', () => {
             bubbleElement.innerHTML = `
               <p>👥 <strong>Swarm Mission Successfully Dispatched!</strong></p>
               <p class="text-sm text-secondary">The specialist agent mesh network has completed their tasks and checked boundary safety metrics.</p>
-              <pre class="code-snippet">${result.stdout}</pre>
+              <pre class="code-snippet">${escapeHTML(result.stdout)}</pre>
             `;
             checkStatus();
             if (typeof fetchHistory === 'function') fetchHistory();
@@ -400,10 +416,11 @@ document.addEventListener('DOMContentLoaded', () => {
             logToTerminal(`SWARM DEPLOYMENT FAILED:\n${result.stderr || result.stdout}`, true);
             bubbleElement.innerHTML = `
               <p style="color: #F87171;">⚠️ <strong>Swarm Execution Terminated with Errors</strong></p>
-              <pre class="code-snippet" style="border-color: rgba(239, 68, 68, 0.25);">${result.stderr || result.stdout || 'Unknown deployment error occurred.'}</pre>
+              <pre class="code-snippet" style="border-color: rgba(239, 68, 68, 0.25);">${escapeHTML(result.stderr || result.stdout || 'Unknown deployment error occurred.')}</pre>
             `;
             if (typeof fetchHistory === 'function') fetchHistory();
           }
+
         } catch (err) {
           termStatus.innerText = 'Error';
           logToTerminal(`Request Error: ${err.message}`, true);
@@ -427,6 +444,13 @@ document.addEventListener('DOMContentLoaded', () => {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ type, provider, model, task })
           });
+
+          if (!response.ok) {
+            const errText = await response.text();
+            let parsedErr;
+            try { parsedErr = JSON.parse(errText); } catch(e) {}
+            throw new Error((parsedErr && parsedErr.error) || errText || 'Failed to spawn specialist agent');
+          }
 
           const reader = response.body.getReader();
           const decoder = new TextDecoder();
@@ -463,16 +487,17 @@ document.addEventListener('DOMContentLoaded', () => {
             logToTerminal(`SPAWN SUCCESS:\n${result.stdout}`);
             bubbleElement.innerHTML = `
               <p>👤 <strong>Specialist Agent [${type.toUpperCase()}] Spawned & Executed!</strong></p>
-              <pre class="code-snippet">${result.stdout}</pre>
+              <pre class="code-snippet">${escapeHTML(result.stdout)}</pre>
             `;
             checkStatus();
           } else {
             logToTerminal(`SPAWN FAILED:\n${result.stderr || result.stdout}`, true);
             bubbleElement.innerHTML = `
               <p style="color: #F87171;">⚠️ <strong>Specialist Spawn Terminated with Errors</strong></p>
-              <pre class="code-snippet" style="border-color: rgba(239, 68, 68, 0.25);">${result.stderr || result.stdout || 'Spawn command failed.'}</pre>
+              <pre class="code-snippet" style="border-color: rgba(239, 68, 68, 0.25);">${escapeHTML(result.stderr || result.stdout || 'Spawn command failed.')}</pre>
             `;
           }
+
         } catch (err) {
           termStatus.innerText = 'Error';
           logToTerminal(`Request Error: ${err.message}`, true);
@@ -509,8 +534,8 @@ document.addEventListener('DOMContentLoaded', () => {
         memoryResultsContainer.innerHTML = `
           <div class="data-item">
             <h4>HNSW Index Search Results</h4>
-            <span>Matched memories for query: <strong>"${query}"</strong></span>
-            <pre class="code-snippet">${result.stdout || 'No semantic matching memory fragments found.'}</pre>
+            <span>Matched memories for query: <strong>"${escapeHTML(query)}"</strong></span>
+            <pre class="code-snippet">${escapeHTML(result.stdout || 'No semantic matching memory fragments found.')}</pre>
           </div>
         `;
       } else {
@@ -600,7 +625,7 @@ document.addEventListener('DOMContentLoaded', () => {
           <div class="data-item">
             <h4 style="color: var(--accent-danger);">Vulnerability CVE Scan Results</h4>
             <span>Threat status: <strong>Secure / Guarded</strong></span>
-            <pre class="code-snippet">${result.stdout || 'Scan complete. Codebase is clean!'}</pre>
+            <pre class="code-snippet">${escapeHTML(result.stdout || 'Scan complete. Codebase is clean!')}</pre>
           </div>
         `;
       } else {
@@ -634,8 +659,8 @@ document.addEventListener('DOMContentLoaded', () => {
         securityResultsContainer.innerHTML = `
           <div class="data-item">
             <h4>File verification report</h4>
-            <span>Boundary: <strong>"${filePath}"</strong></span>
-            <pre class="code-snippet">${result.stdout || 'Verification report details empty.'}</pre>
+            <span>Boundary: <strong>"${escapeHTML(filePath)}"</strong></span>
+            <pre class="code-snippet">${escapeHTML(result.stdout || 'Verification report details empty.')}</pre>
           </div>
         `;
       } else {
@@ -665,7 +690,7 @@ document.addEventListener('DOMContentLoaded', () => {
           <div class="data-item">
             <h4 style="color: var(--accent-gold);">System Optimization Benchmarks</h4>
             <span>Profiling metrics and latency speeds:</span>
-            <pre class="code-snippet">${result.stdout || 'Profiling benchmarks loaded.'}</pre>
+            <pre class="code-snippet">${escapeHTML(result.stdout || 'Profiling benchmarks loaded.')}</pre>
           </div>
         `;
       } else {
@@ -778,7 +803,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (item.changes && item.changes.length > 0) {
           changesHtml = `<div style="margin-top: 10px; display: flex; flex-direction: column; gap: 6px;">`;
           item.changes.forEach(c => {
-            changesHtml += `<span style="font-size: 12px; color: #E2E8F0;"><span style="color: #34D399; margin-right: 6px;">✓</span> <strong>${c.file}</strong> (by ${c.agent})</span>`;
+            changesHtml += `<span style="font-size: 12px; color: #E2E8F0;"><span style="color: #34D399; margin-right: 6px;">✓</span> <strong>${escapeHTML(c.file)}</strong> (by ${escapeHTML(c.agent)})</span>`;
           });
           changesHtml += `</div>`;
         } else if (item.success) {
@@ -795,11 +820,11 @@ document.addEventListener('DOMContentLoaded', () => {
             </div>
             
             <div style="font-size: 14px; font-weight: 500; color: #F1F5F9; line-height: 1.4; margin-top: 4px;">
-              <strong>Prompt:</strong> "${item.prompt}"
+              <strong>Prompt:</strong> "${escapeHTML(item.prompt)}"
             </div>
 
             <div style="font-size: 12px; color: #94A3B8;">
-              <strong>Repo:</strong> <span style="font-family: monospace; color: #38BDF8;">${item.repoUrl}</span> <span style="color: #A78BFA;">[${item.branch}]</span>
+              <strong>Repo:</strong> <span style="font-family: monospace; color: #38BDF8;">${escapeHTML(item.repoUrl)}</span> <span style="color: #A78BFA;">[${escapeHTML(item.branch)}]</span>
             </div>
 
             <div style="border-top: 1px dashed rgba(255,255,255,0.06); margin-top: 6px; padding-top: 8px;">
@@ -811,7 +836,7 @@ document.addEventListener('DOMContentLoaded', () => {
               <button class="btn btn-secondary btn-small toggle-history-log" data-id="${item.id}" style="align-self: flex-start; font-size: 11px; padding: 4px 8px; font-weight: 500; cursor: pointer;">
                 Show Console Logs
               </button>
-              <pre class="code-snippet history-log-pre hidden" id="log-pre-${item.id}" style="margin-top: 6px; max-height: 250px; font-size: 11.5px; line-height: 1.5; border-color: rgba(255,255,255,0.05); text-align: left; overflow: auto; width: 100%; white-space: pre-wrap; background: rgba(0,0,0,0.25);">${item.stdout || item.stderr || 'No console output logged.'}</pre>
+              <pre class="code-snippet history-log-pre hidden" id="log-pre-${item.id}" style="margin-top: 6px; max-height: 250px; font-size: 11.5px; line-height: 1.5; border-color: rgba(255,255,255,0.05); text-align: left; overflow: auto; width: 100%; white-space: pre-wrap; background: rgba(0,0,0,0.25);">${escapeHTML(item.stdout || item.stderr || 'No console output logged.')}</pre>
             </div>
           </div>
         `;

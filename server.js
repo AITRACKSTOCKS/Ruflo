@@ -4,21 +4,6 @@ const path = require('path');
 const os = require('os');
 const { exec, execFile, spawn } = require('child_process');
 
-// Load environment variables from local .env file (if it exists)
-const dotenvPath = path.join(__dirname, '.env');
-if (fs.existsSync(dotenvPath)) {
-  const envConfig = fs.readFileSync(dotenvPath, 'utf8');
-  envConfig.split('\n').forEach(line => {
-    const trimmed = line.trim();
-    if (trimmed && !trimmed.startsWith('#')) {
-      const parts = trimmed.split('=');
-      const key = parts[0].trim();
-      const val = parts.slice(1).join('=').trim().replace(/(^['"]|['"]$)/g, ''); // Strip outer quotes
-      process.env[key] = val;
-    }
-  });
-}
-
 // Global Resilience Handlers to prevent any unhandled child socket drops from crashing the Node.js Express process (nodemon.json is now active)
 process.on('uncaughtException', (err) => {
   console.error('[Uncaught Exception] Prevented crash:', err.stack || err);
@@ -28,6 +13,68 @@ process.on('unhandledRejection', (reason, promise) => {
   console.error('[Unhandled Rejection] Prevented crash at:', promise, 'reason:', reason);
 });
 
+// ── SECRET SCANNING & ENV PROTECTION ───────────────────────────
+const envPath = path.join(__dirname, '.env');
+const configPath = path.join(__dirname, 'claude-flow.config.json');
+
+// 1. Parse .env into process.env if it exists
+if (fs.existsSync(envPath)) {
+  try {
+    const envContent = fs.readFileSync(envPath, 'utf8');
+    envContent.split(/\r?\n/).forEach(line => {
+      const trimmed = line.trim();
+      if (!trimmed || trimmed.startsWith('#')) return;
+      const index = trimmed.indexOf('=');
+      if (index > 0) {
+        const key = trimmed.substring(0, index).trim();
+        let value = trimmed.substring(index + 1).trim();
+        if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
+          value = value.substring(1, value.length - 1);
+        }
+        process.env[key] = value;
+      }
+    });
+  } catch (err) {
+    console.error('[Env Loader] Error reading .env file:', err);
+  }
+}
+
+// 2. Migration: extract secret from claude-flow.config.json if present
+if (fs.existsSync(configPath)) {
+  try {
+    const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+    const providers = config.agents && config.agents.providers;
+    if (providers && Array.isArray(providers)) {
+      const openaiProvider = providers.find(p => p.name === 'openai');
+      if (openaiProvider && openaiProvider.apiKey && openaiProvider.apiKey.startsWith('sk-')) {
+        const keyVal = openaiProvider.apiKey;
+        // Save to .env if not already set
+        if (!process.env.OPENAI_API_KEY) {
+          process.env.OPENAI_API_KEY = keyVal;
+          let newEnvContent = `OPENAI_API_KEY="${keyVal}"\n`;
+          if (fs.existsSync(envPath)) {
+            const currentEnv = fs.readFileSync(envPath, 'utf8');
+            if (!currentEnv.includes('OPENAI_API_KEY')) {
+              newEnvContent = currentEnv + (currentEnv.endsWith('\n') ? '' : '\n') + `OPENAI_API_KEY="${keyVal}"\n`;
+            } else {
+              newEnvContent = currentEnv; // Keep it
+            }
+          }
+          fs.writeFileSync(envPath, newEnvContent, 'utf8');
+          console.log('[Env Loader] Successfully migrated OpenAI API key from config to .env file.');
+        }
+        
+        // Remove from config to prevent GitHub Push Protection blocks
+        openaiProvider.apiKey = 'env:OPENAI_API_KEY';
+        fs.writeFileSync(configPath, JSON.stringify(config, null, 2), 'utf8');
+        console.log('[Env Loader] Cleaned API key from claude-flow.config.json for security.');
+      }
+    }
+  } catch (err) {
+    console.error('[Env Loader] Migration failed:', err);
+  }
+}
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 
@@ -35,7 +82,6 @@ app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
 // Path definitions
-const configPath = path.join(__dirname, 'claude-flow.config.json');
 const storePath = path.join(__dirname, '.claude-flow', 'agents', 'store.json');
 
 // Helper to run shell commands safely
@@ -58,35 +104,29 @@ function runCommand(cmd, customCwd = __dirname) {
   });
 }
 
-// Secure PowerShell script generation helpers to prevent shell escaping/quotation parse errors on Windows systems
+// Secure cross-platform execution helpers
 function runCommandSafe(objective, strategy, parallel, workingDir = __dirname) {
   return new Promise((resolve) => {
-    const jobId = Date.now();
-    const scriptPath = path.join(__dirname, `temp_run_${jobId}.ps1`);
     const binPath = path.join(__dirname, 'node_modules', 'ruflo', 'bin', 'ruflo.js');
     
-    // Construct PS1 script. Use literal single quotes for arguments. Double internal single-quotes to escape.
-    const psScript = `$env:GIT_TERMINAL_PROMPT="0"
-$env:GIT_ASKPASS="echo"
-$env:GCM_INTERACTIVE="never"
-${process.env.OPENAI_API_KEY ? `$env:OPENAI_API_KEY="${process.env.OPENAI_API_KEY}"` : ''}
-node '${binPath.replace(/'/g, "''")}' swarm start -o '${objective.replace(/'/g, "''")}'${strategy ? ` -s ${strategy}` : ''}${parallel === false ? ' --no-parallel' : ''}
-`;
-
     try {
-      fs.writeFileSync(scriptPath, psScript, 'utf8');
-      
-      console.log(`[Safe Exec] Executing temp script: ${scriptPath}`);
-      execFile('powershell', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', scriptPath], { cwd: workingDir, env: { ...process.env } }, (error, stdout, stderr) => {
-        // Safe cleanup
-        try {
-          if (fs.existsSync(scriptPath)) {
-            fs.unlinkSync(scriptPath);
-          }
-        } catch (e) {
-          console.error('[Safe Exec] Temporary script cleanup failed:', e);
+      execFile('node', [
+        binPath,
+        'swarm',
+        'start',
+        '-o', objective,
+        ...(strategy ? ['-s', strategy] : []),
+        ...(parallel === false ? ['--no-parallel'] : [])
+      ], {
+        cwd: workingDir,
+        env: {
+          ...process.env,
+          GIT_TERMINAL_PROMPT: '0',
+          GIT_ASKPASS: 'echo',
+          GCM_INTERACTIVE: 'never',
+          OPENAI_API_KEY: process.env.OPENAI_API_KEY || ''
         }
-        
+      }, (error, stdout, stderr) => {
         resolve({
           success: !error,
           stdout: stdout || '',
@@ -98,7 +138,7 @@ node '${binPath.replace(/'/g, "''")}' swarm start -o '${objective.replace(/'/g, 
       resolve({
         success: false,
         stdout: '',
-        stderr: `Failed to initialize script bridge: ${err.message}`,
+        stderr: `Failed to initialize command: ${err.message}`,
         code: -1
       });
     }
@@ -107,31 +147,27 @@ node '${binPath.replace(/'/g, "''")}' swarm start -o '${objective.replace(/'/g, 
 
 function runAgentSafe(type, provider, model, task, workingDir = __dirname) {
   return new Promise((resolve) => {
-    const jobId = Date.now();
-    const scriptPath = path.join(__dirname, `temp_agent_${jobId}.ps1`);
     const binPath = path.join(__dirname, 'node_modules', 'ruflo', 'bin', 'ruflo.js');
     
-    // Construct PS1 script. Use literal single quotes for task. Double internal single-quotes to escape.
-    const psScript = `$env:GIT_TERMINAL_PROMPT="0"
-$env:GIT_ASKPASS="echo"
-$env:GCM_INTERACTIVE="never"
-node '${binPath.replace(/'/g, "''")}' agent spawn -t ${type}${provider ? ` -p ${provider}` : ''}${model ? ` -m ${model}` : ''} --task '${task.replace(/'/g, "''")}'
-`;
-
     try {
-      fs.writeFileSync(scriptPath, psScript, 'utf8');
-      
-      console.log(`[Safe Agent] Executing temp script: ${scriptPath}`);
-      execFile('powershell', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', scriptPath], { cwd: workingDir }, (error, stdout, stderr) => {
-        // Safe cleanup
-        try {
-          if (fs.existsSync(scriptPath)) {
-            fs.unlinkSync(scriptPath);
-          }
-        } catch (e) {
-          console.error('[Safe Agent] Temporary script cleanup failed:', e);
+      execFile('node', [
+        binPath,
+        'agent',
+        'spawn',
+        '-t', type,
+        ...(provider ? ['-p', provider] : []),
+        ...(model ? ['-m', model] : []),
+        '--task', task
+      ], {
+        cwd: workingDir,
+        env: {
+          ...process.env,
+          GIT_TERMINAL_PROMPT: '0',
+          GIT_ASKPASS: 'echo',
+          GCM_INTERACTIVE: 'never',
+          OPENAI_API_KEY: process.env.OPENAI_API_KEY || ''
         }
-        
+      }, (error, stdout, stderr) => {
         resolve({
           success: !error,
           stdout: stdout || '',
@@ -143,7 +179,7 @@ node '${binPath.replace(/'/g, "''")}' agent spawn -t ${type}${provider ? ` -p ${
       resolve({
         success: false,
         stdout: '',
-        stderr: `Failed to initialize agent bridge: ${err.message}`,
+        stderr: `Failed to initialize agent command: ${err.message}`,
         code: -1
       });
     }
@@ -152,28 +188,24 @@ node '${binPath.replace(/'/g, "''")}' agent spawn -t ${type}${provider ? ` -p ${
 
 function runCommandSafeStream(objective, strategy, parallel, workingDir, onData) {
   return new Promise((resolve) => {
-    const jobId = Date.now();
-    const scriptPath = path.join(__dirname, `temp_run_${jobId}.ps1`);
     const binPath = path.join(__dirname, 'node_modules', 'ruflo', 'bin', 'ruflo.js');
     
-    // Construct PS1 script. Use literal single quotes for arguments. Double internal single-quotes to escape.
-    const psScript = `$env:GIT_TERMINAL_PROMPT="0"
-$env:GIT_ASKPASS="echo"
-$env:GCM_INTERACTIVE="never"
-node '${binPath.replace(/'/g, "''")}' swarm start -o '${objective.replace(/'/g, "''")}'${strategy ? ` -s ${strategy}` : ''}${parallel === false ? ' --no-parallel' : ''}
-`;
-
     try {
-      fs.writeFileSync(scriptPath, psScript, 'utf8');
-      
-      console.log(`[Safe Stream Exec] Executing temp script: ${scriptPath}`);
-      const proc = spawn('powershell', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', scriptPath], {
+      const proc = spawn('node', [
+        binPath,
+        'swarm',
+        'start',
+        '-o', objective,
+        ...(strategy ? ['-s', strategy] : []),
+        ...(parallel === false ? ['--no-parallel'] : [])
+      ], {
         cwd: workingDir,
         env: {
           ...process.env,
           GIT_TERMINAL_PROMPT: '0',
           GIT_ASKPASS: 'echo',
-          GCM_INTERACTIVE: 'never'
+          GCM_INTERACTIVE: 'never',
+          OPENAI_API_KEY: process.env.OPENAI_API_KEY || ''
         },
         shell: false
       });
@@ -198,14 +230,6 @@ node '${binPath.replace(/'/g, "''")}' swarm start -o '${objective.replace(/'/g, 
       }
       
       proc.on('close', (code) => {
-        try {
-          if (fs.existsSync(scriptPath)) {
-            fs.unlinkSync(scriptPath);
-          }
-        } catch (e) {
-          console.error('[Safe Stream Exec] Temporary script cleanup failed:', e);
-        }
-        
         resolve({
           success: code === 0,
           stdout,
@@ -215,12 +239,6 @@ node '${binPath.replace(/'/g, "''")}' swarm start -o '${objective.replace(/'/g, 
       });
       
       proc.on('error', (err) => {
-        try {
-          if (fs.existsSync(scriptPath)) {
-            fs.unlinkSync(scriptPath);
-          }
-        } catch (e) {}
-        
         resolve({
           success: false,
           stdout,
@@ -232,7 +250,7 @@ node '${binPath.replace(/'/g, "''")}' swarm start -o '${objective.replace(/'/g, 
       resolve({
         success: false,
         stdout: '',
-        stderr: `Failed to initialize script stream bridge: ${err.message}`,
+        stderr: `Failed to initialize command stream bridge: ${err.message}`,
         code: -1
       });
     }
@@ -241,28 +259,26 @@ node '${binPath.replace(/'/g, "''")}' swarm start -o '${objective.replace(/'/g, 
 
 function runAgentSafeStream(type, provider, model, task, workingDir, onData) {
   return new Promise((resolve) => {
-    const jobId = Date.now();
-    const scriptPath = path.join(__dirname, `temp_agent_${jobId}.ps1`);
     const binPath = path.join(__dirname, 'node_modules', 'ruflo', 'bin', 'ruflo.js');
     
-    // Construct PS1 script. Use literal single quotes for task. Double internal single-quotes to escape.
-    const psScript = `$env:GIT_TERMINAL_PROMPT="0"
-$env:GIT_ASKPASS="echo"
-$env:GCM_INTERACTIVE="never"
-node '${binPath.replace(/'/g, "''")}' agent spawn -t ${type}${provider ? ` -p ${provider}` : ''}${model ? ` -m ${model}` : ''} --task '${task.replace(/'/g, "''")}'
-`;
-
     try {
-      fs.writeFileSync(scriptPath, psScript, 'utf8');
-      
-      console.log(`[Safe Agent Stream] Executing temp script: ${scriptPath}`);
-      const proc = spawn('powershell', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', scriptPath], {
+      console.log(`[Safe Agent Stream] Executing node directly: ${binPath}`);
+      const proc = spawn('node', [
+        binPath,
+        'agent',
+        'spawn',
+        '-t', type,
+        ...(provider ? ['-p', provider] : []),
+        ...(model ? ['-m', model] : []),
+        '--task', task
+      ], {
         cwd: workingDir,
         env: {
           ...process.env,
           GIT_TERMINAL_PROMPT: '0',
           GIT_ASKPASS: 'echo',
-          GCM_INTERACTIVE: 'never'
+          GCM_INTERACTIVE: 'never',
+          OPENAI_API_KEY: process.env.OPENAI_API_KEY || ''
         },
         shell: false
       });
@@ -287,14 +303,6 @@ node '${binPath.replace(/'/g, "''")}' agent spawn -t ${type}${provider ? ` -p ${
       }
       
       proc.on('close', (code) => {
-        try {
-          if (fs.existsSync(scriptPath)) {
-            fs.unlinkSync(scriptPath);
-          }
-        } catch (e) {
-          console.error('[Safe Agent Stream] Temporary script cleanup failed:', e);
-        }
-        
         resolve({
           success: code === 0,
           stdout,
@@ -304,12 +312,6 @@ node '${binPath.replace(/'/g, "''")}' agent spawn -t ${type}${provider ? ` -p ${
       });
       
       proc.on('error', (err) => {
-        try {
-          if (fs.existsSync(scriptPath)) {
-            fs.unlinkSync(scriptPath);
-          }
-        } catch (e) {}
-        
         resolve({
           success: false,
           stdout,
@@ -337,6 +339,15 @@ app.get('/api/status', (req, res) => {
   if (fs.existsSync(configPath)) {
     try {
       config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+      // Mask key for security if loaded from env or config
+      const providers = config.agents && config.agents.providers;
+      if (providers && Array.isArray(providers)) {
+        const openaiProvider = providers.find(p => p.name === 'openai');
+        if (openaiProvider) {
+          const keyExists = process.env.OPENAI_API_KEY || openaiProvider.apiKey;
+          openaiProvider.apiKey = keyExists ? '••••••••••••••••' : '';
+        }
+      }
     } catch (e) {
       console.error('Error parsing config:', e);
     }
@@ -366,6 +377,21 @@ app.get('/api/status', (req, res) => {
 app.post('/api/settings/save', (req, res) => {
   const { apiKey, model } = req.body;
   try {
+    if (apiKey && apiKey !== '••••••••••••••••') {
+      process.env.OPENAI_API_KEY = apiKey;
+      let newEnvContent = `OPENAI_API_KEY="${apiKey}"\n`;
+      if (fs.existsSync(envPath)) {
+        const currentEnv = fs.readFileSync(envPath, 'utf8');
+        if (currentEnv.includes('OPENAI_API_KEY')) {
+          newEnvContent = currentEnv.replace(/OPENAI_API_KEY\s*=\s*["']?[^"'\r\n]*["']?/g, `OPENAI_API_KEY="${apiKey}"`);
+        } else {
+          newEnvContent = currentEnv + (currentEnv.endsWith('\n') ? '' : '\n') + `OPENAI_API_KEY="${apiKey}"\n`;
+        }
+      }
+      fs.writeFileSync(envPath, newEnvContent, 'utf8');
+      console.log('[Env Manager] Saved OpenAI API key to .env file.');
+    }
+
     let config = {};
     if (fs.existsSync(configPath)) {
       config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
@@ -373,7 +399,8 @@ app.post('/api/settings/save', (req, res) => {
     if (!config.agents) config.agents = {};
     if (!config.agents.providers) config.agents.providers = [];
     const openaiIdx = config.agents.providers.findIndex(p => p.name === 'openai');
-    const entry = { name: 'openai', enabled: true, apiKey: apiKey || '', model: model || 'gpt-4.1' };
+    // Always store "env:OPENAI_API_KEY" reference in the JSON to keep it clean of secrets
+    const entry = { name: 'openai', enabled: true, apiKey: 'env:OPENAI_API_KEY', model: model || 'gpt-4.1' };
     if (openaiIdx >= 0) {
       config.agents.providers[openaiIdx] = entry;
     } else {
@@ -393,12 +420,24 @@ app.post('/api/agent/spawn', async (req, res) => {
     return res.status(400).json({ error: 'Agent type and task are required.' });
   }
 
-  res.setHeader('Content-Type', 'application/json');
-  res.setHeader('Transfer-Encoding', 'chunked');
+  res.writeHead(200, {
+    'Content-Type': 'text/plain; charset=utf-8',
+    'Cache-Control': 'no-cache, no-transform',
+    'Connection': 'keep-alive',
+    'X-Accel-Buffering': 'no',
+    'X-Content-Type-Options': 'nosniff',
+    'Transfer-Encoding': 'chunked'
+  });
+  if (typeof res.flushHeaders === 'function') res.flushHeaders();
+
+  // Write a preamble of 2KB to flush intermediate proxy buffers
+  res.write(' '.repeat(2048) + '\n');
+  if (typeof res.flush === 'function') res.flush();
 
   const onData = (packet) => {
     if (!res.destroyed && res.writable) {
       res.write(JSON.stringify(packet) + '\n');
+      if (typeof res.flush === 'function') res.flush();
     }
   };
 
@@ -452,16 +491,25 @@ app.post('/api/swarm/start', async (req, res) => {
   console.log(`Branch: ${branch || 'default'}`);
   console.log(`===================================================\n`);
 
-  res.setHeader('Content-Type', 'text/event-stream');
-  res.setHeader('Cache-Control', 'no-cache');
-  res.setHeader('Connection', 'keep-alive');
-  res.setHeader('X-Accel-Buffering', 'no');
-  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.writeHead(200, {
+    'Content-Type': 'text/plain; charset=utf-8',
+    'Cache-Control': 'no-cache, no-transform',
+    'Connection': 'keep-alive',
+    'X-Accel-Buffering': 'no',
+    'X-Content-Type-Options': 'nosniff',
+    'Transfer-Encoding': 'chunked'
+  });
+  if (typeof res.flushHeaders === 'function') res.flushHeaders();
+
+  // Write a preamble of 2KB to flush intermediate proxy buffers
+  res.write(' '.repeat(2048) + '\n');
+  if (typeof res.flush === 'function') res.flush();
 
   // Keepalive heartbeat every 15s to prevent browser dropping long-running streams
   const heartbeat = setInterval(() => {
     if (!res.destroyed && res.writable) {
       res.write(JSON.stringify({ type: 'ping', data: '.' }) + '\n');
+      if (typeof res.flush === 'function') res.flush();
     }
   }, 15000);
 
@@ -471,6 +519,7 @@ app.post('/api/swarm/start', async (req, res) => {
     }
     if (!res.destroyed && res.writable) {
       res.write(JSON.stringify(packet) + '\n');
+      if (typeof res.flush === 'function') res.flush();
     }
   };
 
@@ -593,15 +642,23 @@ app.post('/api/swarm/start', async (req, res) => {
   onData({ type: 'log', data: `[Orchestrator] Initializing intelligent swarm pipeline...\n` });
 
   // Load API key
-  let apiKey = '';
-  try {
-    if (fs.existsSync(configPath)) {
-      const cfg = JSON.parse(fs.readFileSync(configPath, 'utf8'));
-      apiKey = (cfg.agents && cfg.agents.providers && cfg.agents.providers.find(p => p.name === 'openai') || {}).apiKey || '';
-    }
-  } catch(e) {}
+  let apiKey = process.env.OPENAI_API_KEY || '';
   if (!apiKey) {
-    return safeEnd({ type: 'result', success: false, stdout: stdoutLogs, stderr: '[Swarm Error] No OpenAI API key configured.', code: 1 });
+    try {
+      if (fs.existsSync(configPath)) {
+        const cfg = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+        const rawKey = (cfg.agents && cfg.agents.providers && cfg.agents.providers.find(p => p.name === 'openai') || {}).apiKey || '';
+        if (rawKey.startsWith('env:') || rawKey.startsWith('process.env.')) {
+          const envVar = rawKey.replace(/^env:|^process\.env\./, '');
+          apiKey = process.env[envVar] || '';
+        } else {
+          apiKey = rawKey;
+        }
+      }
+    } catch(e) {}
+  }
+  if (!apiKey) {
+    return safeEnd({ type: 'result', success: false, stdout: stdoutLogs, stderr: '[Swarm Error] No OpenAI API key configured. Please set OPENAI_API_KEY in .env or settings.', code: 1 });
   }
 
   // ── SMART FILE COLLECTION (only cloned repo, relevance-scored) ──
