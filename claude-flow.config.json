@@ -9,8 +9,8 @@
       {
         "name": "openai",
         "enabled": true,
-        "apiKey": "env:OPENAI_API_KEY",
-        "model": "gpt-4.1-mini"
+        "apiKey": "",
+        "model": "gpt-4.1"
       }
     ]
   },

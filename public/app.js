@@ -16,12 +16,29 @@ document.addEventListener('DOMContentLoaded', () => {
   const btnStartSystem = document.getElementById('btn-start-system');
   const btnStopSystem = document.getElementById('btn-stop-system');
   const btnClearStore = document.getElementById('btn-clear-store');
-  const btnRefreshAgents = document.getElementById('btn-refresh-agents');
+  const btnRefreshAgents = document.getElementById('btn-refresh-agents-chat') || document.getElementById('btn-refresh-agents');
   const btnClearTerminal = document.getElementById('btn-clear-terminal');
   
+  // DOM Elements - Swarm Assistant Chat
+  const formChatSubmit = document.getElementById('form-chat-submit');
+  const chatInput = document.getElementById('chat-input');
+  const missionMode = document.getElementById('mission-mode');
+  const btnToggleConfig = document.getElementById('btn-toggle-config');
+  const chatConfigPanel = document.getElementById('chat-config-panel');
+  const chatRepo = document.getElementById('chat-repo');
+  const chatBranch = document.getElementById('chat-branch');
+  const chatModel = document.getElementById('chat-model');
+  const chatStrategy = document.getElementById('chat-strategy');
+  const chatAgentType = document.getElementById('chat-agent-type');
+  const chatParallel = document.getElementById('chat-parallel');
+  const pillMode = document.getElementById('pill-mode');
+  const pillModelDisplay = document.getElementById('pill-model-display');
+  const pillGit = document.getElementById('pill-git');
+  const btnChatSend = document.getElementById('btn-chat-send');
+  const chatTimeline = document.getElementById('chat-timeline');
+  const chatWelcomePane = document.getElementById('chat-welcome-pane');
+
   // DOM Elements - Forms & Inputs
-  const formSpawnAgent = document.getElementById('form-spawn-agent');
-  const formSwarmObjective = document.getElementById('form-swarm-objective');
   const formMemorySearch = document.getElementById('form-memory-search');
   const formMemoryStore = document.getElementById('form-memory-store');
   const formSecurityVerify = document.getElementById('form-security-verify');
@@ -102,6 +119,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (tabId === 'missions') {
         fetchTasks();
         fetchSessions();
+        if (typeof fetchHistory === 'function') fetchHistory();
       }
     });
   });
@@ -207,73 +225,263 @@ document.addEventListener('DOMContentLoaded', () => {
     agentsGrid.innerHTML = html;
   }
 
-  // 4. Form Submits: Spawn Specialist Agent
-  formSpawnAgent.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const type = document.getElementById('agent-type').value;
-    const provider = document.getElementById('agent-provider').value;
-    const model = document.getElementById('agent-model').value;
-    const task = document.getElementById('agent-task').value;
+  // Swarm Chat Configuration Listeners
+  if (btnToggleConfig) {
+    btnToggleConfig.addEventListener('click', () => {
+      chatConfigPanel.classList.toggle('hidden');
+    });
+  }
 
-    logToTerminal(`Spawn Request -> Specialist [${type}] via ${provider} (${model})`);
-    termStatus.innerText = 'Spawning agent...';
-
-    try {
-      const response = await fetch('/api/agent/spawn', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type, provider, model, task })
-      });
-      const result = await response.json();
-      termStatus.innerText = 'Terminal Ready';
-      
-      if (result.success) {
-        logToTerminal(`SPAWN SUCCESS:\n${result.stdout}`);
-        checkStatus();
+  if (missionMode) {
+    missionMode.addEventListener('change', () => {
+      const mode = missionMode.value;
+      if (mode === 'swarm') {
+        pillMode.innerText = '👥 Swarm';
+        btnChatSend.querySelector('span').innerText = 'Deploy Mission';
+        chatInput.placeholder = 'Explain the complex swarm objective...';
       } else {
-        logToTerminal(`SPAWN FAILED (Code ${result.code}):\n${result.stderr || result.stdout}`, true);
+        pillMode.innerText = '👤 Single';
+        btnChatSend.querySelector('span').innerText = 'Spawn Agent';
+        chatInput.placeholder = 'Enter initial task instruction for specialist agent...';
       }
-    } catch (err) {
-      termStatus.innerText = 'Error';
-      logToTerminal(`Request Error: ${err.message}`, true);
-    }
+    });
+  }
+
+  if (chatModel) {
+    chatModel.addEventListener('change', () => {
+      pillModelDisplay.innerText = `🤖 ${chatModel.value}`;
+    });
+  }
+
+  if (chatRepo) {
+    chatRepo.addEventListener('input', () => {
+      if (chatRepo.value.trim()) {
+        pillGit.classList.remove('hidden');
+      } else {
+        pillGit.classList.add('hidden');
+      }
+    });
+  }
+
+  // Quick Start Prompts Binding
+  document.querySelectorAll('.btn-quick-prompt').forEach(btn => {
+    btn.addEventListener('click', () => {
+      chatInput.value = btn.getAttribute('data-prompt');
+      chatInput.focus();
+    });
   });
 
-  // 5. Form Submits: Deploy Swarm Mission
-  formSwarmObjective.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const objective = document.getElementById('swarm-objective').value;
-    const strategy = document.getElementById('swarm-strategy').value;
-    const parallel = document.getElementById('swarm-parallel').value === 'true';
-    const repoUrl = document.getElementById('swarm-repo').value;
-    const branch = document.getElementById('swarm-branch').value;
-
-    if (repoUrl) {
-      logToTerminal(`Deploying Git-Bridge Mission -> Repository: [${repoUrl}] (Branch: ${branch})`);
+  // Append conversational message bubbles
+  function appendChatMessage(sender, text, isUser = false) {
+    if (chatWelcomePane) {
+      chatWelcomePane.style.display = 'none';
     }
-    logToTerminal(`Deploying Swarm Mission -> "${objective}" (Strategy: ${strategy})`);
-    termStatus.innerText = 'Swarm active...';
 
-    try {
-      const response = await fetch('/api/swarm/start', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ objective, strategy, parallel, repoUrl, branch })
-      });
-      const result = await response.json();
-      termStatus.innerText = 'Terminal Ready';
-      
-      if (result.success) {
-        logToTerminal(`MISSION DEPLOYED SUCCESS:\n${result.stdout}`);
-        checkStatus();
-      } else {
-        logToTerminal(`MISSION DEPLOYED FAILED:\n${result.stderr || result.stdout}`, true);
+    const timestamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const msgId = 'msg-' + Date.now();
+
+    const bubbleHtml = `
+      <div class="chat-msg ${isUser ? 'chat-msg-user' : 'chat-msg-system'}" id="${msgId}">
+        <div class="chat-msg-avatar">
+          ${isUser ? '👤' : '🤖'}
+        </div>
+        <div class="chat-msg-body">
+          <div class="chat-msg-meta">
+            <span class="chat-msg-sender">${sender}</span>
+            <span class="chat-msg-time">${timestamp}</span>
+          </div>
+          <div class="chat-msg-content">
+            ${text}
+          </div>
+        </div>
+      </div>
+    `;
+
+    chatTimeline.innerHTML += bubbleHtml;
+    chatTimeline.scrollTop = chatTimeline.scrollHeight;
+
+    return msgId;
+  }
+
+  // Hook up main conversational action form
+  if (formChatSubmit) {
+    formChatSubmit.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const promptText = chatInput.value.trim();
+      if (!promptText) return;
+
+      const mode = missionMode.value;
+
+      if (mode === 'swarm') {
+        const repoUrl = chatRepo.value.trim();
+        if (!repoUrl) {
+          const runLocal = confirm("⚠️ No GitHub Repository URL has been configured.\n\nDeploying a Swarm Mission in Local Mode will modify the command center directory itself (c:\\Users\\hp\\Desktop\\ruflo).\n\nDo you want to proceed in Local Mode?\n(Click 'Cancel' to expand settings and enter a GitHub Repository URL.)");
+          if (!runLocal) {
+            // Expand configuration panel
+            if (chatConfigPanel.classList.contains('hidden')) {
+              chatConfigPanel.classList.remove('hidden');
+            }
+            chatRepo.focus();
+            return;
+          }
+        }
       }
-    } catch (err) {
-      termStatus.innerText = 'Error';
-      logToTerminal(`Request Error: ${err.message}`, true);
-    }
-  });
+
+      // Reset prompt field
+      chatInput.value = '';
+
+      // Append user bubble
+      appendChatMessage('Administrator', promptText, true);
+
+      // Add thinking bubble
+      const thinkingText = `<span class="pulse">Swarm coordinating in the background... Analysing boundaries & launching agents.</span>`;
+      const responseId = appendChatMessage('RuFlo Swarm', thinkingText, false);
+
+      if (mode === 'swarm') {
+        const objective = promptText;
+        const strategy = chatStrategy.value;
+        const parallel = chatParallel.value === 'true';
+        const repoUrl = chatRepo.value.trim();
+        const branch = chatBranch.value;
+
+        logToTerminal(`Swarm Chat Action -> Objective: "${objective}" (Strategy: ${strategy})`);
+        termStatus.innerText = 'Swarm active...';
+
+        try {
+          const response = await fetch('/api/swarm/start', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ objective, strategy, parallel, repoUrl, branch })
+          });
+
+          const reader = response.body.getReader();
+          const decoder = new TextDecoder();
+          let buffer = '';
+          let result = { success: false, stdout: '', stderr: '', code: -1 };
+
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split('\n');
+            buffer = lines.pop(); // Keep trailing incomplete line
+
+            for (const line of lines) {
+              if (!line.trim()) continue;
+              try {
+                const packet = JSON.parse(line);
+                if (packet.type === 'ping') {
+                  // keepalive heartbeat — ignore silently
+                } else if (packet.type === 'log') {
+                  logToTerminal(packet.data);
+                } else if (packet.type === 'result') {
+                  result = packet;
+                }
+              } catch (err) {
+                console.error('[Stream Parser] JSON parse error:', err);
+              }
+            }
+          }
+
+          termStatus.innerText = 'Terminal Ready';
+          const bubbleElement = document.getElementById(responseId).querySelector('.chat-msg-content');
+
+          if (result.success) {
+            logToTerminal(`SWARM DEPLOYMENT SUCCESS:\n${result.stdout}`);
+            bubbleElement.innerHTML = `
+              <p>👥 <strong>Swarm Mission Successfully Dispatched!</strong></p>
+              <p class="text-sm text-secondary">The specialist agent mesh network has completed their tasks and checked boundary safety metrics.</p>
+              <pre class="code-snippet">${result.stdout}</pre>
+            `;
+            checkStatus();
+            if (typeof fetchHistory === 'function') fetchHistory();
+          } else {
+            logToTerminal(`SWARM DEPLOYMENT FAILED:\n${result.stderr || result.stdout}`, true);
+            bubbleElement.innerHTML = `
+              <p style="color: #F87171;">⚠️ <strong>Swarm Execution Terminated with Errors</strong></p>
+              <pre class="code-snippet" style="border-color: rgba(239, 68, 68, 0.25);">${result.stderr || result.stdout || 'Unknown deployment error occurred.'}</pre>
+            `;
+            if (typeof fetchHistory === 'function') fetchHistory();
+          }
+        } catch (err) {
+          termStatus.innerText = 'Error';
+          logToTerminal(`Request Error: ${err.message}`, true);
+          const bubbleElement = document.getElementById(responseId).querySelector('.chat-msg-content');
+          bubbleElement.innerHTML = `<span style="color: #F87171;">Request Failure: ${err.message}</span>`;
+        }
+
+      } else {
+        // Spawn Single Agent Mode
+        const type = chatAgentType.value;
+        const provider = 'openai';
+        const model = chatModel.value;
+        const task = promptText;
+
+        logToTerminal(`Agent Spawn Chat Action -> Specialist [${type}] via ${provider} (${model})`);
+        termStatus.innerText = 'Spawning agent...';
+
+        try {
+          const response = await fetch('/api/agent/spawn', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ type, provider, model, task })
+          });
+
+          const reader = response.body.getReader();
+          const decoder = new TextDecoder();
+          let buffer = '';
+          let result = { success: false, stdout: '', stderr: '', code: -1 };
+
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split('\n');
+            buffer = lines.pop(); // Keep trailing incomplete line
+
+            for (const line of lines) {
+              if (!line.trim()) continue;
+              try {
+                const packet = JSON.parse(line);
+                if (packet.type === 'log') {
+                  logToTerminal(packet.data);
+                } else if (packet.type === 'result') {
+                  result = packet;
+                }
+              } catch (err) {
+                console.error('[Stream Parser] JSON parse error:', err);
+              }
+            }
+          }
+
+          termStatus.innerText = 'Terminal Ready';
+          const bubbleElement = document.getElementById(responseId).querySelector('.chat-msg-content');
+
+          if (result.success) {
+            logToTerminal(`SPAWN SUCCESS:\n${result.stdout}`);
+            bubbleElement.innerHTML = `
+              <p>👤 <strong>Specialist Agent [${type.toUpperCase()}] Spawned & Executed!</strong></p>
+              <pre class="code-snippet">${result.stdout}</pre>
+            `;
+            checkStatus();
+          } else {
+            logToTerminal(`SPAWN FAILED:\n${result.stderr || result.stdout}`, true);
+            bubbleElement.innerHTML = `
+              <p style="color: #F87171;">⚠️ <strong>Specialist Spawn Terminated with Errors</strong></p>
+              <pre class="code-snippet" style="border-color: rgba(239, 68, 68, 0.25);">${result.stderr || result.stdout || 'Spawn command failed.'}</pre>
+            `;
+          }
+        } catch (err) {
+          termStatus.innerText = 'Error';
+          logToTerminal(`Request Error: ${err.message}`, true);
+          const bubbleElement = document.getElementById(responseId).querySelector('.chat-msg-content');
+          bubbleElement.innerHTML = `<span style="color: #F87171;">Request Failure: ${err.message}</span>`;
+        }
+      }
+    });
+  }
 
   // 6. Memory & Vector Operations
   formMemorySearch.addEventListener('submit', async (e) => {
@@ -538,6 +746,119 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
+  // 10b. Swarm Mission History Logs
+  const historyContainer = document.getElementById('history-container');
+  const btnRefreshHistory = document.getElementById('btn-refresh-history');
+  const btnClearHistory = document.getElementById('btn-clear-history');
+
+  async function fetchHistory() {
+    if (!historyContainer) return;
+    try {
+      const response = await fetch('/api/history');
+      const data = await response.json();
+      
+      if (!data || data.length === 0) {
+        historyContainer.innerHTML = `
+          <div class="empty-state">
+            <div class="empty-icon">📜</div>
+            <p>No past missions recorded</p>
+            <span>Deploy a mission using the Swarm Orchestrator to see your changes history.</span>
+          </div>
+        `;
+        return;
+      }
+
+      let html = '';
+      data.forEach(item => {
+        const dateStr = new Date(item.timestamp).toLocaleString();
+        const successText = item.success ? 'Succeeded' : 'Failed';
+        const statusStyle = item.success ? 'color: #34D399; background: rgba(52, 211, 153, 0.1);' : 'color: #F87171; background: rgba(248, 113, 113, 0.1);';
+        
+        let changesHtml = '';
+        if (item.changes && item.changes.length > 0) {
+          changesHtml = `<div style="margin-top: 10px; display: flex; flex-direction: column; gap: 6px;">`;
+          item.changes.forEach(c => {
+            changesHtml += `<span style="font-size: 12px; color: #E2E8F0;"><span style="color: #34D399; margin-right: 6px;">✓</span> <strong>${c.file}</strong> (by ${c.agent})</span>`;
+          });
+          changesHtml += `</div>`;
+        } else if (item.success) {
+          changesHtml = `<span style="font-size: 12px; color: #94A3B8; font-style: italic;">No files modified (code verification passed with no changes needed).</span>`;
+        } else {
+          changesHtml = `<span style="font-size: 12px; color: #F87171; font-style: italic;">Failed during agent execution or repository cloning.</span>`;
+        }
+
+        html += `
+          <div class="data-item" style="border: 1px solid rgba(255,255,255,0.06); border-radius: 8px; padding: 16px; background: rgba(255,255,255,0.015); display: flex; flex-direction: column; gap: 8px; text-align: left; width: 100%;">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; flex-wrap: wrap;">
+              <span style="font-size: 11px; color: #94A3B8; font-family: monospace;">${dateStr}</span>
+              <span style="font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 4px; ${statusStyle}">${successText}</span>
+            </div>
+            
+            <div style="font-size: 14px; font-weight: 500; color: #F1F5F9; line-height: 1.4; margin-top: 4px;">
+              <strong>Prompt:</strong> "${item.prompt}"
+            </div>
+
+            <div style="font-size: 12px; color: #94A3B8;">
+              <strong>Repo:</strong> <span style="font-family: monospace; color: #38BDF8;">${item.repoUrl}</span> <span style="color: #A78BFA;">[${item.branch}]</span>
+            </div>
+
+            <div style="border-top: 1px dashed rgba(255,255,255,0.06); margin-top: 6px; padding-top: 8px;">
+              <strong style="font-size: 12px; color: #94A3B8;">Modifications:</strong>
+              ${changesHtml}
+            </div>
+
+            <div style="margin-top: 8px; display: flex; flex-direction: column; gap: 6px;">
+              <button class="btn btn-secondary btn-small toggle-history-log" data-id="${item.id}" style="align-self: flex-start; font-size: 11px; padding: 4px 8px; font-weight: 500; cursor: pointer;">
+                Show Console Logs
+              </button>
+              <pre class="code-snippet history-log-pre hidden" id="log-pre-${item.id}" style="margin-top: 6px; max-height: 250px; font-size: 11.5px; line-height: 1.5; border-color: rgba(255,255,255,0.05); text-align: left; overflow: auto; width: 100%; white-space: pre-wrap; background: rgba(0,0,0,0.25);">${item.stdout || item.stderr || 'No console output logged.'}</pre>
+            </div>
+          </div>
+        `;
+      });
+      
+      historyContainer.innerHTML = html;
+
+      // Add expand listeners
+      document.querySelectorAll('.toggle-history-log').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const id = btn.getAttribute('data-id');
+          const pre = document.getElementById(`log-pre-${id}`);
+          if (pre.classList.contains('hidden')) {
+            pre.classList.remove('hidden');
+            btn.innerText = 'Hide Console Logs';
+          } else {
+            pre.classList.add('hidden');
+            btn.innerText = 'Show Console Logs';
+          }
+        });
+      });
+    } catch (err) {
+      console.error('[History fetch error]:', err);
+      if (historyContainer) {
+        historyContainer.innerHTML = `<div class="empty-state"><p>Connection error fetching mission history.</p></div>`;
+      }
+    }
+  }
+
+  if (btnRefreshHistory) btnRefreshHistory.addEventListener('click', fetchHistory);
+
+  if (btnClearHistory) {
+    btnClearHistory.addEventListener('click', async () => {
+      if (!confirm('Are you sure you want to delete all past mission history logs?')) return;
+      try {
+        const response = await fetch('/api/history/clear', { method: 'POST' });
+        const result = await response.json();
+        if (result.success) {
+          logToTerminal('Mission history successfully cleared.');
+          fetchHistory();
+        }
+      } catch (err) {
+        logToTerminal(`History Clear Error: ${err.message}`, true);
+      }
+    });
+  }
+
   btnRefreshTasks.addEventListener('click', fetchTasks);
   btnRefreshSessions.addEventListener('click', fetchSessions);
 
@@ -602,6 +923,7 @@ document.addEventListener('DOMContentLoaded', () => {
   if (localStorage.getItem('ruflo_authenticated') === 'true') {
     loginOverlay.classList.add('hidden');
     checkStatus();
+    if (typeof fetchHistory === 'function') fetchHistory();
   } else {
     loginOverlay.classList.remove('hidden');
   }

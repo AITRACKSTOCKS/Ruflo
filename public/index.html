@@ -135,130 +135,166 @@
         </div>
       </section>
 
-      <!-- TAB SECTIONS -->
-
-      <!-- TAB 1: SWARM ORCHESTRATOR -->
+      <!--       <!-- TAB 1: SWARM ORCHESTRATOR -->
       <div id="tab-orchestrator" class="tab-content active">
-        <div class="dashboard-grid">
-          <!-- Left Forms Panel -->
-          <div class="left-panel">
-            <!-- Spawn Form -->
-            <div class="card glass-card">
-              <div class="card-header">
+        <div class="chat-dashboard-container">
+          
+          <!-- Central Chat Pane -->
+          <div class="chat-pane card glass-card">
+            <div class="card-header header-between">
+              <div class="header-left">
                 <div class="card-icon cyan-glow">
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="8.5" cy="7" r="4"></circle><line x1="20" y1="8" x2="20" y2="14"></line><line x1="23" y1="11" x2="17" y2="11"></line></svg>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
                 </div>
-                <h2>Spawn Specialist Agent</h2>
+                <h2>Swarm AI Assistant</h2>
               </div>
-              <form id="form-spawn-agent" class="card-body">
-                <div class="form-row">
-                  <div class="form-group">
-                    <label for="agent-type">Agent Type</label>
-                    <select id="agent-type" required>
-                      <option value="coder" selected>Coder (Developer)</option>
-                      <option value="tester">Tester (QA)</option>
-                      <option value="reviewer">Reviewer (Auditor)</option>
-                      <option value="researcher">Researcher (Info)</option>
-                      <option value="architect">Architect (Design)</option>
-                    </select>
-                  </div>
-                  <div class="form-group">
-                    <label for="agent-provider">LLM Provider</label>
-                    <select id="agent-provider">
-                      <option value="openai" selected>OpenAI (Configured)</option>
-                      <option value="anthropic">Anthropic (Claude)</option>
-                      <option value="ollama">Ollama (Local)</option>
-                    </select>
-                  </div>
+              <div class="header-right flex-row gap-12 align-center">
+                <!-- Dropdown toggle for spawn mode vs swarm mode -->
+                <div class="mode-selector">
+                  <select id="mission-mode" class="input-inline">
+                    <option value="swarm" selected>👥 Deploy Swarm Mission</option>
+                    <option value="spawn">👤 Spawn Specialist Agent</option>
+                  </select>
                 </div>
+                <button id="btn-toggle-config" class="btn-icon" title="Configure Swarm Strategy / Git settings">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+                </button>
+              </div>
+            </div>
+            
+            <div class="chat-timeline" id="chat-timeline">
+              <!-- Default welcome interface -->
+              <div class="chat-welcome" id="chat-welcome-pane">
+                <div class="welcome-badge">🌐 RuFlo Swarm Assistant</div>
+                <h1>How can I help you build today?</h1>
+                <p>Deploy multi-agent swarms, write React components, refactor Express endpoints, or run security scans in real-time.</p>
                 
-                <div class="form-group">
-                  <label for="agent-model">Model Name Override</label>
-                  <input type="text" id="agent-model" value="gpt-4.1-mini">
-                </div>
-
-                <div class="form-group">
-                  <label for="agent-task">Initial Task Instruction</label>
-                  <textarea id="agent-task" rows="3" required>Create a file named gpt_test.txt containing the text 'Hello from GPT 4.1 Mini!'</textarea>
-                </div>
-
-                <button type="submit" class="btn btn-cyan btn-full">
-                  Spawn & Execute Agent
-                </button>
-              </form>
-            </div>
-
-            <!-- Swarm Objective Form -->
-            <div class="card glass-card">
-              <div class="card-header">
-                <div class="card-icon purple-glow">
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"></path></svg>
-                </div>
-                <h2>Deploy Swarm Mission</h2>
-              </div>
-              <form id="form-swarm-objective" class="card-body">
-              <div class="form-group">
-                <label for="swarm-objective">Mission Goal</label>
-                <textarea id="swarm-objective" rows="3" placeholder="Explain the complex swarm objective..." required>Verify the project structure, run code analysis, and document optimal implementation patterns in patterns.md</textarea>
-              </div>
-
-              <div class="form-row">
-                <div class="form-group">
-                  <label for="swarm-repo">Target GitHub Repository (Optional)</label>
-                  <input type="text" id="swarm-repo" placeholder="e.g. https://github.com/org/repo.git">
-                </div>
-                <div class="form-group">
-                  <label for="swarm-branch">Branch Name</label>
-                  <input type="text" id="swarm-branch" value="main" placeholder="e.g. main or dev">
-                </div>
-              </div>
-              
-              <div class="form-row">
-                  <div class="form-group">
-                    <label for="swarm-strategy">Coordination Strategy</label>
-                    <select id="swarm-strategy">
-                      <option value="specialized" selected>Specialized Handlers</option>
-                      <option value="parallel">High Parallelism</option>
-                      <option value="strict">Strict Consensus Routing</option>
-                    </select>
-                  </div>
-                  <div class="form-group">
-                    <label for="swarm-parallel">Parallel Execution</label>
-                    <select id="swarm-parallel">
-                      <option value="true" selected>Enabled</option>
-                      <option value="false">Disabled (Sequential)</option>
-                    </select>
-                  </div>
-                </div>
-
-                <button type="submit" class="btn btn-purple btn-full">
-                  Deploy Swarm Mission
-                </button>
-              </form>
-            </div>
-          </div>
-
-          <!-- Right Grid Agent List -->
-          <div class="right-panel">
-            <div class="card glass-card agents-panel">
-              <div class="card-header header-between">
-                <div class="header-left">
-                  <div class="card-icon green-glow">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9.5" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
-                  </div>
-                  <h2>Active Agents Network</h2>
-                </div>
-                <div class="header-actions">
-                  <button id="btn-refresh-agents" class="btn-icon">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"></path></svg>
+                <div class="quick-prompts-grid">
+                  <button class="btn-quick-prompt" data-prompt="Spawn a Coder agent to create a beautiful dark-mode interface in index.html.">
+                    <span>💻</span>
+                    <strong>Spawn Coder Agent</strong>
+                    <span>Create a dark-mode theme</span>
+                  </button>
+                  <button class="btn-quick-prompt" data-prompt="Deploy a Swarm Mission to analyze the codebase structure, run unit tests, and document patterns.">
+                    <span>👥</span>
+                    <strong>Deploy Swarm</strong>
+                    <span>Analyze & test the workspace</span>
+                  </button>
+                  <button class="btn-quick-prompt" data-prompt="Perform a complete security scan of our repository and audit for vulnerabilities.">
+                    <span>🛡️</span>
+                    <strong>Security Audit</strong>
+                    <span>Audit codebase boundaries</span>
+                  </button>
+                  <button class="btn-quick-prompt" data-prompt="Run system performance profiles to check WASM compile times and latency metrics.">
+                    <span>⚡</span>
+                    <strong>Run Profiles</strong>
+                    <span>Benchmark agent latency</span>
                   </button>
                 </div>
               </div>
-              <div class="card-body agents-list" id="agents-grid">
-                <!-- Dynamic agent grid injection -->
+            </div>
+            
+            <!-- Collapsible Settings Panel -->
+            <div id="chat-config-panel" class="chat-config-panel hidden">
+              <div class="config-grid">
+                <!-- Git Settings -->
+                <div class="config-section">
+                  <h3>📦 Git Bridge Configuration</h3>
+                  <div class="form-group">
+                    <label for="chat-repo">GitHub Repository URL</label>
+                    <input type="text" id="chat-repo" placeholder="https://github.com/org/repo.git">
+                  </div>
+                  <div class="form-group">
+                    <label for="chat-branch">Target Branch Name</label>
+                    <input type="text" id="chat-branch" value="main">
+                  </div>
+                </div>
+                
+                <!-- Swarm Parameters -->
+                <div class="config-section">
+                  <h3>⚙️ Swarm Parameters</h3>
+                  <div class="form-row">
+                    <div class="form-group">
+                      <label for="chat-model">Model Override</label>
+                      <select id="chat-model">
+                        <option value="gpt-4.1-mini" selected>gpt-4.1-mini (Fast)</option>
+                        <option value="gpt-4">gpt-4 (Standard)</option>
+                        <option value="claude-3-5-sonnet">claude-3.5-sonnet</option>
+                      </select>
+                    </div>
+                    <div class="form-group">
+                      <label for="chat-strategy">Coordination Strategy</label>
+                      <select id="chat-strategy">
+                        <option value="specialized" selected>Specialized Handlers</option>
+                        <option value="parallel">High Parallelism</option>
+                        <option value="strict">Strict Consensus Routing</option>
+                      </select>
+                    </div>
+                  </div>
+                  
+                  <div class="form-row">
+                    <div class="form-group">
+                      <label for="chat-agent-type">Agent Type (Single Mode Only)</label>
+                      <select id="chat-agent-type">
+                        <option value="coder" selected>Coder (Developer)</option>
+                        <option value="tester">Tester (QA)</option>
+                        <option value="reviewer">Reviewer (Auditor)</option>
+                        <option value="researcher">Researcher (Info)</option>
+                        <option value="architect">Architect (Design)</option>
+                      </select>
+                    </div>
+                    <div class="form-group">
+                      <label for="chat-parallel">Parallel Execution</label>
+                      <select id="chat-parallel">
+                        <option value="true" selected>Enabled</option>
+                        <option value="false">Disabled (Sequential)</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
+            
+            <!-- Chat Input Area -->
+            <div class="chat-input-container">
+              <form id="form-chat-submit" class="chat-input-form">
+                <textarea id="chat-input" rows="2" placeholder="Ask RuFlo to build something, spawns agents, or perform code upgrades..." required></textarea>
+                <div class="chat-input-actions">
+                  <div class="chat-pills">
+                    <span class="pill" id="pill-mode">👥 Swarm</span>
+                    <span class="pill" id="pill-model-display">🤖 gpt-4.1-mini</span>
+                    <span class="pill hidden" id="pill-git">📦 Git Active</span>
+                  </div>
+                  <button type="submit" class="btn btn-cyan btn-send" id="btn-chat-send">
+                    <span>Deploy Mission</span>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-left: 8px;"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+                  </button>
+                </div>
+              </form>
+            </div>
+            
           </div>
+          
+          <!-- Collapsible Right Panel for Active Agents Network -->
+          <div class="agents-side-panel card glass-card" id="agents-side-panel">
+            <div class="card-header header-between">
+              <div class="header-left">
+                <div class="card-icon green-glow">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9.5" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+                </div>
+                <h3>Active Network</h3>
+              </div>
+              <div class="header-actions">
+                <button id="btn-refresh-agents-chat" class="btn-icon" title="Refresh network status">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"></path></svg>
+                </button>
+              </div>
+            </div>
+            <div class="card-body agents-sidebar-list" id="agents-grid">
+              <!-- Dynamic agents injection -->
+            </div>
+          </div>
+          
         </div>
       </div>
 
@@ -565,6 +601,34 @@
             </div>
           </div>
         </div>
+
+        <!-- Swarm Mission History Logs Card -->
+        <div class="dashboard-grid" style="margin-top: 24px; grid-template-columns: 1fr;">
+          <div class="card glass-card flex-col">
+            <div class="card-header header-between">
+              <div class="header-left">
+                <div class="card-icon green-glow">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+                </div>
+                <h2>Mission History Logs</h2>
+              </div>
+              <div class="header-actions" style="display: flex; gap: 8px;">
+                <button id="btn-clear-history" class="btn btn-secondary btn-small" style="font-size: 11px; padding: 4px 10px;">Clear History</button>
+                <button id="btn-refresh-history" class="btn-icon">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"></path></svg>
+                </button>
+              </div>
+            </div>
+            <div class="card-body overflow-auto" id="history-container" style="max-height: 400px; display: flex; flex-direction: column; gap: 16px; padding: 20px;">
+              <div class="empty-state">
+                <div class="empty-icon">📜</div>
+                <p>No past missions recorded</p>
+                <span>Deploy a mission using the Swarm Orchestrator to see your changes history.</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
       </div>
 
       <!-- COMMON CONSOLE / TERMINAL OUTPUT -->

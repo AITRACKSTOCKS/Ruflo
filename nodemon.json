@@ -1,0 +1,11 @@
+{
+  "ignore": [
+    "temp/**/*",
+    "data/**/*",
+    "ruvector.db",
+    ".claude-flow/**/*",
+    ".claude/**/*",
+    "node_modules/**/*",
+    "package-lock.json"
+  ]
+}
