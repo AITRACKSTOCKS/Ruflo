@@ -4,6 +4,21 @@ const path = require('path');
 const os = require('os');
 const { exec, execFile, spawn } = require('child_process');
 
+// Load environment variables from local .env file (if it exists)
+const dotenvPath = path.join(__dirname, '.env');
+if (fs.existsSync(dotenvPath)) {
+  const envConfig = fs.readFileSync(dotenvPath, 'utf8');
+  envConfig.split('\n').forEach(line => {
+    const trimmed = line.trim();
+    if (trimmed && !trimmed.startsWith('#')) {
+      const parts = trimmed.split('=');
+      const key = parts[0].trim();
+      const val = parts.slice(1).join('=').trim().replace(/(^['"]|['"]$)/g, ''); // Strip outer quotes
+      process.env[key] = val;
+    }
+  });
+}
+
 // Global Resilience Handlers to prevent any unhandled child socket drops from crashing the Node.js Express process (nodemon.json is now active)
 process.on('uncaughtException', (err) => {
   console.error('[Uncaught Exception] Prevented crash:', err.stack || err);
@@ -54,6 +69,7 @@ function runCommandSafe(objective, strategy, parallel, workingDir = __dirname) {
     const psScript = `$env:GIT_TERMINAL_PROMPT="0"
 $env:GIT_ASKPASS="echo"
 $env:GCM_INTERACTIVE="never"
+${process.env.OPENAI_API_KEY ? `$env:OPENAI_API_KEY="${process.env.OPENAI_API_KEY}"` : ''}
 node '${binPath.replace(/'/g, "''")}' swarm start -o '${objective.replace(/'/g, "''")}'${strategy ? ` -s ${strategy}` : ''}${parallel === false ? ' --no-parallel' : ''}
 `;
 
@@ -61,7 +77,7 @@ node '${binPath.replace(/'/g, "''")}' swarm start -o '${objective.replace(/'/g, 
       fs.writeFileSync(scriptPath, psScript, 'utf8');
       
       console.log(`[Safe Exec] Executing temp script: ${scriptPath}`);
-      execFile('powershell', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', scriptPath], { cwd: workingDir }, (error, stdout, stderr) => {
+      execFile('powershell', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', scriptPath], { cwd: workingDir, env: { ...process.env } }, (error, stdout, stderr) => {
         // Safe cleanup
         try {
           if (fs.existsSync(scriptPath)) {
