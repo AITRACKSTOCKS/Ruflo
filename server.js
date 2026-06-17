@@ -84,6 +84,320 @@ app.use(express.static(path.join(__dirname, 'public')));
 // Path definitions
 const storePath = path.join(__dirname, '.claude-flow', 'agents', 'store.json');
 
+const agentProfiles = {
+  coder: null,
+  tester: null,
+  reviewer: null,
+  researcher: null,
+  architect: null,
+  marketing: {
+    cliType: 'analyst',
+    label: 'Marketing',
+    instructions: [
+      'You are the Marketing agent for Ruflo.',
+      'Focus on positioning, campaign ideas, content angles, audience messaging, offers, funnels, launch plans, and growth strategy.',
+      'Return practical marketing recommendations, copy, and next steps that match the user task.'
+    ]
+  },
+  cto: {
+    cliType: 'core-architect',
+    label: 'CTO',
+    instructions: [
+      'You are the CTO agent for Ruflo.',
+      'Focus on technical strategy, architecture, scalability, risk, engineering tradeoffs, implementation plans, security, and delivery sequencing.',
+      'Return clear technical direction, risks, and next engineering actions that match the user task.'
+    ]
+  },
+  seo: {
+    cliType: 'analyst',
+    label: 'SEO',
+    instructions: [
+      'You are the SEO agent for Ruflo.',
+      'Focus on keyword strategy, on-page SEO, technical SEO, search intent, content briefs, metadata, internal linking, and ranking opportunities.',
+      'Return SEO recommendations, prioritized fixes, and measurable next steps that match the user task.'
+    ]
+  }
+};
+
+const agentAliases = {
+  dev: 'coder',
+  developer: 'coder',
+  engineer: 'coder',
+  coder: 'coder',
+  qa: 'tester',
+  test: 'tester',
+  tester: 'tester',
+  review: 'reviewer',
+  reviewer: 'reviewer',
+  research: 'researcher',
+  researcher: 'researcher',
+  architect: 'architect',
+  architecture: 'architect',
+  marketing: 'marketing',
+  marketer: 'marketing',
+  growth: 'marketing',
+  cto: 'cto',
+  techlead: 'cto',
+  technicallead: 'cto',
+  seo: 'seo',
+  search: 'seo'
+};
+
+function normalizeAgentRequest(type, task) {
+  const key = String(type || '').trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+  const agentType = agentAliases[key] || key;
+  const profile = agentProfiles[agentType];
+  if (typeof profile === 'undefined') {
+    return { error: `Unsupported agent type: ${type}` };
+  }
+  if (!profile) {
+    return { type: agentType, task };
+  }
+  return {
+    type: profile.cliType,
+    task: `${profile.instructions.join('\n')}\n\nUser task:\n${task}`
+  };
+}
+
+function getAgentLabel(type) {
+  const key = String(type || '').trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+  const agentType = agentAliases[key] || key;
+  const profile = agentProfiles[agentType];
+  return profile && profile.label ? profile.label : agentType.charAt(0).toUpperCase() + agentType.slice(1);
+}
+
+function parseDirectedAgentTasks(prompt) {
+  const promptText = String(prompt || '').trim();
+  const lines = promptText.split(/\r?\n/);
+  const sections = [];
+  let current = null;
+  const headerPattern = /^\s*(?:\d+[\).\-\s]+)?([A-Za-z][A-Za-z0-9 _-]{1,40})\s*[:：]\s*(.*)$/;
+
+  for (const line of lines) {
+    const match = line.match(headerPattern);
+    if (match) {
+      const key = match[1].trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+      const agentType = agentAliases[key];
+      if (agentType) {
+        if (current && current.task.trim()) sections.push(current);
+        current = {
+          type: agentType,
+          label: getAgentLabel(agentType),
+          task: match[2] ? `${match[2].trim()}\n` : ''
+        };
+        continue;
+      }
+    }
+    if (current) {
+      current.task += `${line}\n`;
+    }
+  }
+
+  if (current && current.task.trim()) sections.push(current);
+  const parsedSections = sections.map(section => ({
+    ...section,
+    task: section.task.trim()
+  }));
+  if (parsedSections.length > 0) return parsedSections;
+
+  const fallbackSections = [];
+  const lowerPrompt = promptText.toLowerCase();
+  const fallbackRules = [
+    {
+      type: 'coder',
+      matches: ['developer', 'dev', 'coder', 'code', 'section add', 'add kro', 'build', 'banao', 'implement'],
+      task: `Implement the requested code work from this prompt:\n${promptText}`
+    },
+    {
+      type: 'tester',
+      matches: ['tester', 'test', 'qa', 'bugs', 'regression'],
+      task: `Test the requested work and report bugs, regressions, and UI issues from this prompt:\n${promptText}`
+    },
+    {
+      type: 'reviewer',
+      matches: ['reviewer', 'review', 'audit', 'quality', 'security'],
+      task: `Review the requested work for quality, security, accessibility, and maintainability:\n${promptText}`
+    },
+    {
+      type: 'researcher',
+      matches: ['researcher', 'research', 'competitor'],
+      task: `Research the product and market context requested in this prompt:\n${promptText}`
+    },
+    {
+      type: 'architect',
+      matches: ['architect', 'architecture', 'structure', 'workflow'],
+      task: `Plan the structure and architecture for the requested work:\n${promptText}`
+    },
+    {
+      type: 'marketing',
+      matches: ['marketing', 'launch', 'copy', 'positioning', 'audience'],
+      task: `Handle the marketing and positioning work requested in this prompt:\n${promptText}`
+    },
+    {
+      type: 'cto',
+      matches: ['cto', 'technical risk', 'scalability', 'deployment', 'api key'],
+      task: `Review the technical strategy and risks requested in this prompt:\n${promptText}`
+    },
+    {
+      type: 'seo',
+      matches: ['seo', 'keyword', 'meta', 'search'],
+      task: `Handle the SEO work requested in this prompt:\n${promptText}`
+    }
+  ];
+
+  fallbackRules.forEach(rule => {
+    if (rule.matches.some(match => lowerPrompt.includes(match))) {
+      fallbackSections.push({
+        type: rule.type,
+        label: getAgentLabel(rule.type),
+        task: rule.task
+      });
+    }
+  });
+
+  if (fallbackSections.length === 0 && promptText) {
+    fallbackSections.push({
+      type: 'coder',
+      label: getAgentLabel('coder'),
+      task: `Implement the requested work from this prompt:\n${promptText}`
+    });
+  }
+
+  return fallbackSections;
+}
+
+function isSafeGitHubRepoUrl(repoUrl) {
+  const value = String(repoUrl || '').trim();
+  return /^https:\/\/github\.com\/[\w.-]+\/[\w.-]+(?:\.git)?$/.test(value) ||
+    /^git@github\.com:[\w.-]+\/[\w.-]+(?:\.git)?$/.test(value);
+}
+
+function normalizeBranchName(branch) {
+  const value = String(branch || 'main').trim() || 'main';
+  if (!/^[A-Za-z0-9._/-]{1,120}$/.test(value) || value.includes('..') || value.startsWith('/') || value.endsWith('/')) {
+    return null;
+  }
+  return value;
+}
+
+function getConfiguredApiKey() {
+  let apiKey = process.env.OPENAI_API_KEY || '';
+  if (apiKey) return apiKey;
+  try {
+    if (fs.existsSync(configPath)) {
+      const cfg = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+      const rawKey = (cfg.agents && cfg.agents.providers && cfg.agents.providers.find(p => p.name === 'openai') || {}).apiKey || '';
+      if (rawKey.startsWith('env:') || rawKey.startsWith('process.env.')) {
+        const envVar = rawKey.replace(/^env:|^process\.env\./, '');
+        apiKey = process.env[envVar] || '';
+      } else {
+        apiKey = rawKey;
+      }
+    }
+  } catch(e) {}
+  return apiKey;
+}
+
+function collectEditableFiles(dir, depth = 0) {
+  if (depth > 4) return [];
+  const editableExts = new Set(['.html', '.js', '.css', '.ts', '.jsx', '.tsx', '.json', '.md', '.txt', '.py', '.vue', '.svelte', '.php', '.rb', '.go', '.java', '.c', '.cpp', '.h']);
+  const ignoreDirs = new Set(['node_modules', '.git', '.next', 'dist', 'build', '__pycache__', '.venv', 'vendor', 'coverage', '.cache', 'tmp', 'temp']);
+  let out = [];
+  try {
+    for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+      if (ignoreDirs.has(e.name) || e.name.startsWith('.')) continue;
+      const fp = path.join(dir, e.name);
+      if (e.isDirectory()) out = out.concat(collectEditableFiles(fp, depth + 1));
+      else if (editableExts.has(path.extname(e.name).toLowerCase())) out.push(fp);
+    }
+  } catch(e) {}
+  return out;
+}
+
+function scoreRepoFile(fp, repoDir, objectiveLower) {
+  const typePriority = { '.html':10, '.jsx':9, '.tsx':9, '.vue':9, '.svelte':9, '.js':8, '.ts':8, '.py':8, '.css':7, '.scss':7, '.json':5, '.md':3, '.txt':2 };
+  const relPath = path.relative(repoDir, fp).replace(/\\/g, '/').toLowerCase();
+  const ext = path.extname(fp).toLowerCase();
+  let score = typePriority[ext] || 1;
+  const words = objectiveLower.split(/\W+/).filter(w => w.length > 2);
+  for (const word of words) {
+    if (relPath.includes(word)) score += 8;
+  }
+  const basename = path.basename(fp).toLowerCase();
+  if (['index.html','index.js','index.ts','app.js','app.ts','main.js','main.ts','app.jsx','app.tsx'].includes(basename)) score += 6;
+  if (basename.includes('config') || basename.includes('setting')) score += 3;
+  if (relPath.includes('src/') || relPath.includes('app/') || relPath.includes('pages/')) score += 4;
+  if (relPath.includes('test') || relPath.includes('spec')) score -= 2;
+  return score;
+}
+
+function buildRepoContext(files, repoDir) {
+  let totalChars = 0;
+  const MAX_TOTAL = 60000;
+  const MAX_PER_FILE = 4000;
+  const parts = [];
+  for (const fp of files) {
+    try {
+      const content = fs.readFileSync(fp, 'utf8');
+      const relPath = path.relative(repoDir, fp).replace(/\\/g, '/');
+      const slice = content.length > MAX_PER_FILE ? content.substring(0, MAX_PER_FILE) + '\n... [truncated]' : content;
+      const entry = `=== FILE: ${relPath} ===\n${slice}`;
+      if (totalChars + entry.length > MAX_TOTAL) break;
+      parts.push(entry);
+      totalChars += entry.length;
+    } catch(e) {}
+  }
+  return parts.join('\n\n');
+}
+
+async function gptJsonCall(apiKey, systemPrompt, userPrompt, maxTokens = 6000) {
+  const apiRes = await fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+    body: JSON.stringify({
+      model: 'gpt-4.1',
+      messages: [{ role: 'system', content: systemPrompt }, { role: 'user', content: userPrompt }],
+      temperature: 0.2,
+      max_tokens: maxTokens
+    })
+  });
+  if (!apiRes.ok) throw new Error(`API ${apiRes.status}: ${await apiRes.text()}`);
+  const d = await apiRes.json();
+  const raw = (d.choices && d.choices[0] && d.choices[0].message && d.choices[0].message.content) || '';
+  const cleaned = raw.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```\s*$/i, '').trim();
+  return JSON.parse(cleaned);
+}
+
+function saveDirectedMissionJob(record) {
+  const jobsDir = path.join(__dirname, 'data');
+  const jobsFile = path.join(jobsDir, 'directed_mission_jobs.json');
+  fs.mkdirSync(jobsDir, { recursive: true });
+  let jobs = [];
+  if (fs.existsSync(jobsFile)) {
+    try {
+      jobs = JSON.parse(fs.readFileSync(jobsFile, 'utf8') || '[]');
+    } catch(e) {
+      jobs = [];
+    }
+  }
+  const existingIndex = jobs.findIndex(job => job.id === record.id);
+  if (existingIndex >= 0) jobs[existingIndex] = record;
+  else jobs.push(record);
+  fs.writeFileSync(jobsFile, JSON.stringify(jobs, null, 2), 'utf8');
+  return jobsFile;
+}
+
+function getDirectedMissionJob(jobId) {
+  const jobsFile = path.join(__dirname, 'data', 'directed_mission_jobs.json');
+  if (!fs.existsSync(jobsFile)) return null;
+  try {
+    const jobs = JSON.parse(fs.readFileSync(jobsFile, 'utf8') || '[]');
+    return jobs.find(job => String(job.id) === String(jobId)) || null;
+  } catch(e) {
+    return null;
+  }
+}
+
 // Helper to run shell commands safely
 function runCommand(cmd, customCwd = __dirname) {
   return new Promise((resolve) => {
@@ -419,6 +733,10 @@ app.post('/api/agent/spawn', async (req, res) => {
   if (!type || !task) {
     return res.status(400).json({ error: 'Agent type and task are required.' });
   }
+  const agentRequest = normalizeAgentRequest(type, task);
+  if (agentRequest.error) {
+    return res.status(400).json({ error: agentRequest.error });
+  }
 
   res.writeHead(200, {
     'Content-Type': 'text/plain; charset=utf-8',
@@ -441,7 +759,7 @@ app.post('/api/agent/spawn', async (req, res) => {
     }
   };
 
-  const result = await runAgentSafeStream(type, provider, model, task, __dirname, onData);
+  const result = await runAgentSafeStream(agentRequest.type, provider, model, agentRequest.task, __dirname, onData);
 
   if (!res.destroyed && res.writable) {
     res.write(JSON.stringify({
@@ -453,6 +771,324 @@ app.post('/api/agent/spawn', async (req, res) => {
     }) + '\n');
     res.end();
   }
+});
+
+// 2b. Directed Multi-Agent Mission
+app.post('/api/agent/multi', async (req, res) => {
+  const { prompt, provider, model, parallel, dryRun, repoUrl, branch } = req.body;
+  const tasks = parseDirectedAgentTasks(prompt);
+  if (tasks.length === 0) {
+    return res.status(400).json({
+      error: 'No prompt text found. Use natural language or headings like "Developer:", "Marketing:", "SEO:", or "CTO:".'
+    });
+  }
+  if (dryRun) {
+    return res.json({
+      success: true,
+      agents: tasks.map(task => ({ agent: task.type, label: task.label, task: task.task }))
+    });
+  }
+
+  res.writeHead(200, {
+    'Content-Type': 'text/plain; charset=utf-8',
+    'Cache-Control': 'no-cache, no-transform',
+    'Connection': 'keep-alive',
+    'X-Accel-Buffering': 'no',
+    'X-Content-Type-Options': 'nosniff',
+    'Transfer-Encoding': 'chunked'
+  });
+  if (typeof res.flushHeaders === 'function') res.flushHeaders();
+
+  res.write(' '.repeat(2048) + '\n');
+  if (typeof res.flush === 'function') res.flush();
+
+  const writePacket = (packet) => {
+    if (!res.destroyed && res.writable) {
+      res.write(JSON.stringify(packet) + '\n');
+      if (typeof res.flush === 'function') res.flush();
+    }
+  };
+
+  if (repoUrl) {
+    const safeBranch = normalizeBranchName(branch);
+    if (!isSafeGitHubRepoUrl(repoUrl)) {
+      writePacket({ type: 'result', success: false, stdout: '', stderr: 'Only GitHub repository URLs are supported for Directed Git Bridge.', code: 1 });
+      res.end();
+      return;
+    }
+    if (!safeBranch) {
+      writePacket({ type: 'result', success: false, stdout: '', stderr: 'Invalid branch name.', code: 1 });
+      res.end();
+      return;
+    }
+
+    const apiKey = getConfiguredApiKey();
+    if (!apiKey) {
+      writePacket({ type: 'result', success: false, stdout: '', stderr: '[Directed Mission Error] No OpenAI API key configured. Please set OPENAI_API_KEY in .env or settings.', code: 1 });
+      res.end();
+      return;
+    }
+
+    const jobId = Date.now();
+    const tempDir = path.join(os.tmpdir(), 'ruflo-directed-jobs', `job-${jobId}`);
+    fs.mkdirSync(path.join(os.tmpdir(), 'ruflo-directed-jobs'), { recursive: true });
+
+    writePacket({ type: 'log', label: 'Git Bridge', data: `Cloning repository ${repoUrl}\n` });
+    const cloneResult = await runCommand(`git clone ${repoUrl} "${tempDir}"`);
+    if (!cloneResult.success) {
+      writePacket({ type: 'result', success: false, stdout: cloneResult.stdout, stderr: `Failed to clone repository: ${cloneResult.stderr}`, code: cloneResult.code });
+      res.end();
+      return;
+    }
+
+    writePacket({ type: 'log', label: 'Git Bridge', data: `Setting up branch ${safeBranch}\n` });
+    const checkRemoteBranch = await runCommand(`git ls-remote --heads origin "${safeBranch}"`, tempDir);
+    const branchExistsOnRemote = checkRemoteBranch.success && checkRemoteBranch.stdout.includes(`refs/heads/${safeBranch}`);
+    const checkoutResult = branchExistsOnRemote
+      ? await runCommand(`git fetch origin "${safeBranch}" && git checkout "${safeBranch}"`, tempDir)
+      : await runCommand(`git checkout -b "${safeBranch}"`, tempDir);
+    if (!checkoutResult.success) {
+      writePacket({ type: 'result', success: false, stdout: checkoutResult.stdout, stderr: `Failed to setup branch: ${checkoutResult.stderr}`, code: checkoutResult.code });
+      res.end();
+      return;
+    }
+
+    writePacket({
+      type: 'multi-start',
+      parallel: parallel !== false,
+      agents: tasks.map(task => ({ agent: task.type, label: task.label, task: task.task }))
+    });
+
+    const allChanges = new Map();
+    const results = [];
+    const objectiveLower = prompt.toLowerCase();
+
+    async function runDirectedCodeTask(section) {
+      writePacket({ type: 'agent-start', agent: section.type, label: section.label, task: section.task });
+      const files = collectEditableFiles(tempDir)
+        .map(fp => ({ fp, score: scoreRepoFile(fp, tempDir, `${objectiveLower} ${section.task.toLowerCase()}`) }))
+        .sort((a, b) => b.score - a.score)
+        .slice(0, 20)
+        .map(item => item.fp);
+      const context = buildRepoContext(files, tempDir);
+      const agentRequest = normalizeAgentRequest(section.type, section.task);
+      const roleTask = agentRequest.error ? section.task : agentRequest.task;
+      const systemPrompt = `You are the ${section.label} agent in a directed Ruflo multi-agent Git mission.
+Apply only the changes needed for your assigned section.
+Return ONLY valid JSON:
+{
+  "changes": [{ "path": "relative/file/path", "content": "COMPLETE new file content" }],
+  "summary": "short summary",
+  "issues_found": "risks or notes, or empty string"
+}
+Rules:
+- Preserve existing behavior unless your section explicitly requires a change.
+- Only include files you actually changed.
+- Use complete file contents for each changed file.
+- Do not include markdown fences.`;
+
+      try {
+        const result = await gptJsonCall(apiKey, systemPrompt, `Full directed prompt:\n${prompt}\n\nYour assigned task:\n${roleTask}\n\nRepository context:\n${context}`, 8000);
+        const changes = Array.isArray(result.changes) ? result.changes : [];
+        for (const change of changes) {
+          if (!change.path || !change.content) continue;
+          const targetPath = path.join(tempDir, change.path);
+          if (!targetPath.startsWith(tempDir)) continue;
+          fs.mkdirSync(path.dirname(targetPath), { recursive: true });
+          fs.writeFileSync(targetPath, change.content, 'utf8');
+          allChanges.set(change.path, { agent: section.label, path: change.path });
+        }
+        writePacket({ type: 'log', agent: section.type, label: section.label, data: `${changes.length} file change(s) prepared. ${result.summary || ''}\n` });
+        return {
+          agent: section.type,
+          label: section.label,
+          success: true,
+          stdout: result.summary || '',
+          stderr: result.issues_found || '',
+          code: 0,
+          changes: changes.map(change => change.path).filter(Boolean)
+        };
+      } catch (err) {
+        writePacket({ type: 'log', agent: section.type, label: section.label, data: `Error: ${err.message}\n` });
+        return {
+          agent: section.type,
+          label: section.label,
+          success: false,
+          stdout: '',
+          stderr: err.message,
+          code: 1,
+          changes: []
+        };
+      }
+    }
+
+    if (parallel !== false) {
+      const taskResults = await Promise.all(tasks.map(runDirectedCodeTask));
+      results.push(...taskResults);
+    } else {
+      for (const task of tasks) {
+        results.push(await runDirectedCodeTask(task));
+      }
+    }
+
+    const statusResult = await runCommand('git status --short', tempDir);
+    const diffStatResult = await runCommand('git diff --stat', tempDir);
+    const changesArray = Array.from(allChanges.values());
+    const success = results.every(result => result.success);
+    const jobRecord = {
+      id: jobId,
+      timestamp: new Date().toISOString(),
+      prompt,
+      repoUrl,
+      branch: safeBranch,
+      tempDir,
+      status: 'ready_to_push',
+      pushed: false,
+      changes: changesArray,
+      agents: results,
+      gitStatus: statusResult.stdout || '',
+      diffStat: diffStatResult.stdout || ''
+    };
+    const jobsFile = saveDirectedMissionJob(jobRecord);
+
+    writePacket({
+      type: 'result',
+      success,
+      jobId,
+      savedPath: jobsFile,
+      tempDir,
+      repoUrl,
+      branch: safeBranch,
+      changes: changesArray,
+      agents: results,
+      stdout: `Directed mission prepared ${changesArray.length} file change(s).\n\n${diffStatResult.stdout || statusResult.stdout || 'No git diff produced.'}`,
+      stderr: results.filter(result => result.stderr).map(result => `[${result.label}] ${result.stderr}`).join('\n\n'),
+      code: success ? 0 : 1,
+      canPush: success && !!statusResult.stdout.trim()
+    });
+    res.end();
+    return;
+  }
+
+  async function runDirectedTask(section) {
+    const agentRequest = normalizeAgentRequest(section.type, section.task);
+    if (agentRequest.error) {
+      return {
+        agent: section.type,
+        label: section.label,
+        success: false,
+        stdout: '',
+        stderr: agentRequest.error,
+        code: 1
+      };
+    }
+
+    writePacket({
+      type: 'agent-start',
+      agent: section.type,
+      label: section.label,
+      task: section.task
+    });
+
+    const result = await runAgentSafeStream(
+      agentRequest.type,
+      provider || 'openai',
+      model || 'gpt-4.1-mini',
+      agentRequest.task,
+      __dirname,
+      (packet) => {
+        writePacket({
+          ...packet,
+          agent: section.type,
+          label: section.label
+        });
+      }
+    );
+
+    return {
+      agent: section.type,
+      label: section.label,
+      success: result.success,
+      stdout: result.stdout,
+      stderr: result.stderr,
+      code: result.code
+    };
+  }
+
+  const runInParallel = parallel !== false;
+  writePacket({
+    type: 'multi-start',
+    parallel: runInParallel,
+    agents: tasks.map(task => ({ agent: task.type, label: task.label, task: task.task }))
+  });
+
+  let results = [];
+  if (runInParallel) {
+    results = await Promise.all(tasks.map(runDirectedTask));
+  } else {
+    for (const task of tasks) {
+      results.push(await runDirectedTask(task));
+    }
+  }
+
+  const success = results.every(result => result.success);
+  const stdout = results
+    .map(result => `[${result.label}] ${result.stdout || 'No stdout returned.'}`)
+    .join('\n\n');
+  const stderr = results
+    .filter(result => result.stderr)
+    .map(result => `[${result.label}] ${result.stderr}`)
+    .join('\n\n');
+
+  writePacket({
+    type: 'result',
+    success,
+    agents: results,
+    stdout,
+    stderr,
+    code: success ? 0 : 1
+  });
+  res.end();
+});
+
+app.post('/api/agent/multi/push', async (req, res) => {
+  const { jobId } = req.body;
+  const job = getDirectedMissionJob(jobId);
+  if (!job) {
+    return res.status(404).json({ success: false, error: 'Directed mission job not found.' });
+  }
+  if (job.pushed) {
+    return res.json({ success: true, message: 'This directed mission was already pushed.', job });
+  }
+  if (!job.tempDir || !fs.existsSync(job.tempDir)) {
+    return res.status(400).json({ success: false, error: 'Saved job workspace is missing. Re-run the directed mission before pushing.' });
+  }
+
+  const statusResult = await runCommand('git status --short', job.tempDir);
+  if (!statusResult.stdout.trim()) {
+    job.status = 'no_changes';
+    saveDirectedMissionJob(job);
+    return res.json({ success: false, error: 'No file changes are available to push.', job });
+  }
+
+  const commitMsg = `directed: ${String(job.prompt || 'multi-agent mission').substring(0, 65)}`.replace(/"/g, '');
+  const pushBranch = normalizeBranchName(job.branch) || 'main';
+  const pushResult = await runCommand(`git add . && git commit -m "${commitMsg}" && git push -u origin "${pushBranch}"`, job.tempDir);
+  if (pushResult.success) {
+    job.pushed = true;
+    job.status = 'pushed';
+    job.pushedAt = new Date().toISOString();
+    job.pushStdout = pushResult.stdout;
+    job.pushStderr = pushResult.stderr;
+    saveDirectedMissionJob(job);
+    return res.json({ success: true, message: `Pushed directed mission to ${pushBranch}.`, job, stdout: pushResult.stdout, stderr: pushResult.stderr });
+  }
+
+  job.status = 'push_failed';
+  job.pushStdout = pushResult.stdout;
+  job.pushStderr = pushResult.stderr;
+  saveDirectedMissionJob(job);
+  res.status(500).json({ success: false, error: pushResult.stderr || pushResult.stdout || 'Push failed.', job });
 });
 
 // Helper to save missions to local persistent JSON file
@@ -523,6 +1159,11 @@ app.post('/api/swarm/start', async (req, res) => {
     }
   };
 
+  let workingDir = null;
+  let stdoutLogs = '';
+  let stderrLogs = '';
+  const allChanges = new Map(); // path -> { content, agentName }
+
   const safeEnd = (data) => {
     clearInterval(heartbeat);
     console.log(`\n===================================================`);
@@ -559,10 +1200,6 @@ app.post('/api/swarm/start', async (req, res) => {
       res.end();
     }
   };
-
-  let workingDir = null;
-  let stdoutLogs = '';
-  let stderrLogs = '';
 
   // Require a GitHub repo URL — swarm agents need a target repo to work on
   if (!repoUrl) {
@@ -846,7 +1483,6 @@ Return in this exact JSON format (no markdown):
   };
 
   // ── PHASE 2 & 3: EXECUTE AGENTS IN ORDER ─────────────────────
-  const allChanges = new Map(); // path -> { content, agentName }
   let stdoutAgentLog = '';
 
   async function runAgent(agentName, currentFiles) {

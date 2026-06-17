@@ -250,6 +250,10 @@ document.addEventListener('DOMContentLoaded', () => {
         pillMode.innerText = '👥 Swarm';
         btnChatSend.querySelector('span').innerText = 'Deploy Mission';
         chatInput.placeholder = 'Explain the complex swarm objective...';
+      } else if (mode === 'directed') {
+        pillMode.innerText = '🎯 Directed';
+        btnChatSend.querySelector('span').innerText = 'Run Agents';
+        chatInput.placeholder = 'Developer: build the feature\nMarketing: write launch copy\nSEO: improve search metadata\nCTO: review technical risks';
       } else {
         pillMode.innerText = '👤 Single';
         btnChatSend.querySelector('span').innerText = 'Spawn Agent';
@@ -345,7 +349,7 @@ document.addEventListener('DOMContentLoaded', () => {
       appendChatMessage('Administrator', promptText, true);
 
       // Add thinking bubble
-      const thinkingText = `<span class="pulse">Swarm coordinating in the background... Analysing boundaries & launching agents.</span>`;
+      const thinkingText = `<span class="pulse">RuFlo coordinating in the background... Analysing boundaries & launching agents.</span>`;
       const responseId = appendChatMessage('RuFlo Swarm', thinkingText, false);
 
       if (mode === 'swarm') {
@@ -421,6 +425,120 @@ document.addEventListener('DOMContentLoaded', () => {
             if (typeof fetchHistory === 'function') fetchHistory();
           }
 
+        } catch (err) {
+          termStatus.innerText = 'Error';
+          logToTerminal(`Request Error: ${err.message}`, true);
+          const bubbleElement = document.getElementById(responseId).querySelector('.chat-msg-content');
+          bubbleElement.innerHTML = `<span style="color: #F87171;">Request Failure: ${err.message}</span>`;
+        }
+
+      } else if (mode === 'directed') {
+        const provider = 'openai';
+        const model = chatModel.value;
+        const parallel = chatParallel.value === 'true';
+        const repoUrl = chatRepo.value.trim();
+        const branch = chatBranch.value;
+
+        logToTerminal(`Directed Multi-Agent Mission -> Parallel: ${parallel ? 'enabled' : 'disabled'}`);
+        termStatus.innerText = 'Directed agents active...';
+
+        try {
+          const response = await fetch('/api/agent/multi', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ prompt: promptText, provider, model, parallel, repoUrl, branch })
+          });
+
+          if (!response.ok) {
+            const errText = await response.text();
+            let parsedErr;
+            try { parsedErr = JSON.parse(errText); } catch(e) {}
+            throw new Error((parsedErr && parsedErr.error) || errText || 'Failed to run directed multi-agent mission');
+          }
+
+          const reader = response.body.getReader();
+          const decoder = new TextDecoder();
+          let buffer = '';
+          let result = { success: false, agents: [], stdout: '', stderr: '', code: -1 };
+
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split('\n');
+            buffer = lines.pop();
+
+            for (const line of lines) {
+              if (!line.trim()) continue;
+              try {
+                const packet = JSON.parse(line);
+                if (packet.type === 'log') {
+                  logToTerminal(`[${packet.label || packet.agent || 'Agent'}] ${packet.data}`);
+                } else if (packet.type === 'agent-start') {
+                  logToTerminal(`Starting ${packet.label} agent task...`);
+                } else if (packet.type === 'multi-start') {
+                  logToTerminal(`Directed mission started with ${packet.agents.length} agent task(s).`);
+                } else if (packet.type === 'result') {
+                  result = packet;
+                }
+              } catch (err) {
+                console.error('[Stream Parser] JSON parse error:', err);
+              }
+            }
+          }
+
+          termStatus.innerText = 'Terminal Ready';
+          const bubbleElement = document.getElementById(responseId).querySelector('.chat-msg-content');
+          const cards = (result.agents || []).map(agent => `
+            <div class="data-item" style="margin-top: 10px;">
+              <h4>${escapeHTML(agent.label || agent.agent)}</h4>
+              <span>Status: <strong style="color: ${agent.success ? '#34D399' : '#F87171'};">${agent.success ? 'Succeeded' : 'Failed'}</strong></span>
+              <pre class="code-snippet">${escapeHTML(agent.stdout || agent.stderr || 'No output returned.')}</pre>
+            </div>
+          `).join('');
+
+          if (result.success) {
+            logToTerminal(`DIRECTED MISSION SUCCESS:\n${result.stdout}`);
+            bubbleElement.innerHTML = `
+              <p>🎯 <strong>Directed Multi-Agent Mission Completed!</strong></p>
+              <p class="text-sm text-secondary">Each section was routed to its selected specialist agent.</p>
+              ${result.jobId ? `<p class="text-sm text-secondary">Saved Job ID: <strong>${escapeHTML(String(result.jobId))}</strong></p>` : ''}
+              ${result.tempDir ? `<p class="text-sm text-secondary">Saved Workspace: <code>${escapeHTML(result.tempDir)}</code></p>` : ''}
+              ${cards}
+            `;
+            checkStatus();
+            if (result.canPush && result.jobId) {
+              const shouldPush = confirm('Directed Multi-Agent changes are ready. Do you want to push them to GitHub now?');
+              if (shouldPush) {
+                termStatus.innerText = 'Pushing directed mission...';
+                logToTerminal(`Pushing directed mission job ${result.jobId} to GitHub...`);
+                const pushResponse = await fetch('/api/agent/multi/push', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ jobId: result.jobId })
+                });
+                const pushResult = await pushResponse.json();
+                termStatus.innerText = 'Terminal Ready';
+                if (pushResult.success) {
+                  logToTerminal(`DIRECTED PUSH SUCCESS:\n${pushResult.stdout || pushResult.message}`);
+                  bubbleElement.innerHTML += `<div class="data-item" style="margin-top: 10px;"><h4>GitHub Push</h4><span style="color: #34D399;">${escapeHTML(pushResult.message || 'Pushed successfully.')}</span></div>`;
+                } else {
+                  logToTerminal(`DIRECTED PUSH FAILED:\n${pushResult.error || pushResult.stderr || 'Unknown push error'}`, true);
+                  bubbleElement.innerHTML += `<div class="data-item" style="margin-top: 10px;"><h4>GitHub Push Failed</h4><pre class="code-snippet">${escapeHTML(pushResult.error || pushResult.stderr || 'Unknown push error')}</pre></div>`;
+                }
+              } else {
+                logToTerminal(`Directed mission job ${result.jobId} saved locally. Push skipped by user.`);
+                bubbleElement.innerHTML += `<div class="data-item" style="margin-top: 10px;"><h4>Push Skipped</h4><span>Changes are saved locally for future push/review.</span></div>`;
+              }
+            }
+          } else {
+            logToTerminal(`DIRECTED MISSION FAILED:\n${result.stderr || result.stdout}`, true);
+            bubbleElement.innerHTML = `
+              <p style="color: #F87171;">⚠️ <strong>Directed Mission Completed with Errors</strong></p>
+              ${cards || `<pre class="code-snippet" style="border-color: rgba(239, 68, 68, 0.25);">${escapeHTML(result.stderr || result.stdout || 'Unknown directed mission error.')}</pre>`}
+            `;
+          }
         } catch (err) {
           termStatus.innerText = 'Error';
           logToTerminal(`Request Error: ${err.message}`, true);
