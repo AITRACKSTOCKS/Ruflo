@@ -28,6 +28,85 @@
       "createdAt": "2026-05-29T06:55:27.181Z",
       "model": "haiku",
       "modelRoutedBy": "router"
+    },
+    "agent-1781641701491-7eun5o": {
+      "agentId": "agent-1781641701491-7eun5o",
+      "agentType": "analyst",
+      "status": "idle",
+      "health": 1,
+      "taskCount": 0,
+      "config": {
+        "provider": "anthropic",
+        "task": "validation only"
+      },
+      "createdAt": "2026-06-16T20:28:23.399Z",
+      "model": "opus",
+      "modelRoutedBy": "router",
+      "provider": "anthropic"
+    },
+    "agent-1781644305125-rzn8w6": {
+      "agentId": "agent-1781644305125-rzn8w6",
+      "agentType": "researcher",
+      "status": "idle",
+      "health": 1,
+      "taskCount": 0,
+      "config": {
+        "provider": "openai",
+        "model": "gpt-4.1-mini",
+        "task": "Ruflo ke current product, target users, competitor-style agent dashboards, pricing patterns, and market positioning research-style summary do. Useful product improvement points suggest karo."
+      },
+      "createdAt": "2026-06-16T21:11:45.566Z",
+      "model": "opus",
+      "modelRoutedBy": "router",
+      "provider": "anthropic"
+    },
+    "agent-1781645339926-thehrt": {
+      "agentId": "agent-1781645339926-thehrt",
+      "agentType": "coder",
+      "status": "idle",
+      "health": 1,
+      "taskCount": 0,
+      "config": {
+        "provider": "openai",
+        "model": "gpt-4.1-mini",
+        "task": "eesme price functionlaity add kro"
+      },
+      "createdAt": "2026-06-16T21:29:00.257Z",
+      "model": "sonnet",
+      "modelRoutedBy": "router",
+      "provider": "anthropic"
+    },
+    "agent-1781645501234-ctzahl": {
+      "agentId": "agent-1781645501234-ctzahl",
+      "agentType": "core-architect",
+      "status": "idle",
+      "health": 1,
+      "taskCount": 0,
+      "config": {
+        "provider": "openai",
+        "model": "gpt-4.1-mini",
+        "task": "You are the CTO agent for Ruflo.\nFocus on technical strategy, architecture, scalability, risk, engineering tradeoffs, implementation plans, security, and delivery sequencing.\nReturn clear technical direction, risks, and next engineering actions that match the user task.\n\nUser task:\nTechnical risk review karo. Architecture, scalability, security, deployment, API key handling, agent execution flow, Git repo workflow, aur maintainability risks identify karo. Priority-wise fixes suggest karo."
+      },
+      "createdAt": "2026-06-16T21:31:41.845Z",
+      "model": "opus",
+      "modelRoutedBy": "router",
+      "provider": "anthropic"
+    },
+    "agent-1781646453738-viaz8j": {
+      "agentId": "agent-1781646453738-viaz8j",
+      "agentType": "coder",
+      "status": "idle",
+      "health": 1,
+      "taskCount": 0,
+      "config": {
+        "provider": "openai",
+        "model": "gpt-4.1-mini",
+        "task": "eesme price section add kro"
+      },
+      "createdAt": "2026-06-16T21:47:34.072Z",
+      "model": "opus",
+      "modelRoutedBy": "router",
+      "provider": "anthropic"
     }
   },
   "version": "3.0.0"

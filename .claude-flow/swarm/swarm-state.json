@@ -22,6 +22,126 @@
       "updatedAt": "2026-05-29T06:52:01.267Z",
       "pid": 5860,
       "terminationReason": "host process 5860 exited"
+    },
+    "swarm-1781641124245-ujjhsv": {
+      "swarmId": "swarm-1781641124245-ujjhsv",
+      "topology": "hierarchical-mesh",
+      "maxAgents": 8,
+      "status": "terminated",
+      "agents": [],
+      "tasks": [],
+      "config": {
+        "topology": "hierarchical-mesh",
+        "maxAgents": 8,
+        "strategy": "specialized",
+        "communicationProtocol": "message-bus",
+        "autoScaling": true,
+        "consensusMechanism": "majority"
+      },
+      "createdAt": "2026-06-16T20:18:44.245Z",
+      "updatedAt": "2026-06-16T20:18:58.572Z",
+      "pid": 73088,
+      "terminationReason": "host process 73088 exited"
+    },
+    "swarm-1781641138572-7jv8xe": {
+      "swarmId": "swarm-1781641138572-7jv8xe",
+      "topology": "hierarchical-mesh",
+      "maxAgents": 8,
+      "status": "terminated",
+      "agents": [],
+      "tasks": [],
+      "config": {
+        "topology": "hierarchical-mesh",
+        "maxAgents": 8,
+        "strategy": "specialized",
+        "communicationProtocol": "message-bus",
+        "autoScaling": true,
+        "consensusMechanism": "majority"
+      },
+      "createdAt": "2026-06-16T20:18:58.572Z",
+      "updatedAt": "2026-06-16T20:19:00.406Z",
+      "pid": 73046,
+      "terminationReason": "host process 73046 exited"
+    },
+    "swarm-1781641140405-wfg14c": {
+      "swarmId": "swarm-1781641140405-wfg14c",
+      "topology": "hierarchical-mesh",
+      "maxAgents": 8,
+      "status": "terminated",
+      "agents": [],
+      "tasks": [],
+      "config": {
+        "topology": "hierarchical-mesh",
+        "maxAgents": 8,
+        "strategy": "specialized",
+        "communicationProtocol": "message-bus",
+        "autoScaling": true,
+        "consensusMechanism": "majority"
+      },
+      "createdAt": "2026-06-16T20:19:00.405Z",
+      "updatedAt": "2026-06-16T20:19:16.535Z",
+      "pid": 73060,
+      "terminationReason": "host process 73060 exited"
+    },
+    "swarm-1781641156535-lpdo88": {
+      "swarmId": "swarm-1781641156535-lpdo88",
+      "topology": "hierarchical-mesh",
+      "maxAgents": 8,
+      "status": "terminated",
+      "agents": [
+        "agent-1781641701491-7eun5o",
+        "agent-1781644304958-7ngmrr",
+        "agent-1781644305023-wrfzkg",
+        "agent-1781644305043-sn8uc5",
+        "agent-1781644305072-eq25v8",
+        "agent-1781644305083-6rlpa1",
+        "agent-1781644305114-0d6jh5",
+        "agent-1781644305125-rzn8w6"
+      ],
+      "tasks": [],
+      "config": {
+        "topology": "hierarchical-mesh",
+        "maxAgents": 8,
+        "strategy": "specialized",
+        "communicationProtocol": "message-bus",
+        "autoScaling": true,
+        "consensusMechanism": "majority"
+      },
+      "createdAt": "2026-06-16T20:19:16.535Z",
+      "updatedAt": "2026-06-16T20:28:23.400Z",
+      "pid": 73073,
+      "terminationReason": "host process 73073 exited"
+    },
+    "swarm-1781645315489-ghfaul": {
+      "swarmId": "swarm-1781645315489-ghfaul",
+      "topology": "hierarchical-mesh",
+      "maxAgents": 8,
+      "status": "terminated",
+      "agents": [
+        "agent-1781645339926-thehrt",
+        "agent-1781645501054-xo010q",
+        "agent-1781645501096-gney0h",
+        "agent-1781645501139-2kb6c2",
+        "agent-1781645501165-812eae",
+        "agent-1781645501164-ehwjk5",
+        "agent-1781645501226-rw07pb",
+        "agent-1781645501272-7rh9l1",
+        "agent-1781645501234-ctzahl",
+        "agent-1781646453738-viaz8j"
+      ],
+      "tasks": [],
+      "config": {
+        "topology": "hierarchical-mesh",
+        "maxAgents": 8,
+        "strategy": "specialized",
+        "communicationProtocol": "message-bus",
+        "autoScaling": true,
+        "consensusMechanism": "majority"
+      },
+      "createdAt": "2026-06-16T21:28:35.489Z",
+      "updatedAt": "2026-06-16T21:29:00.260Z",
+      "pid": 11257,
+      "terminationReason": "host process 11257 exited"
     }
   },
   "version": "3.0.0"
